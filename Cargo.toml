@@ -1,0 +1,13 @@
+[package]
+name = "gb86"
+version = "0.1.0"
+authors = ["Sean Purcell <me@seanp.xyz>"]
+
+[dependencies]
+byteorder = "^1.2.2"
+clap = "2"
+dynasm = "0.6"
+dynasmrt = "0.6"
+log = "^0.4"
+env_logger = "^0.7"
+memmap = "^0.6.2"
