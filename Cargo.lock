@@ -101,7 +101,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gb86"
+name = "gbjit"
 version = "0.1.0"
 dependencies = [
  "byteorder",
