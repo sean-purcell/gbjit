@@ -6,8 +6,6 @@ mod instruction;
 
 /// The number of instructions assembled for a block
 pub const INSTRUCTIONS_PER_BLOCK: usize = 256;
-/// The number of bytes required from memory to assemble a block
-pub const DATA_BYTES_PER_BLOCK: usize = INSTRUCTIONS_PER_BLOCK + 2;
 
 pub struct CodeBlock {
     base_addr: u16,

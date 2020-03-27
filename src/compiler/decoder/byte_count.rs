@@ -3,58 +3,15 @@
 
 use lazy_static::lazy_static;
 
+use super::byte_kmap::ByteKmap;
+
 lazy_static! {
-    static ref INVALID_KMAP: BitKmap =
-        BitKmap::parse(&"abc'df'gh + abdefg'h + abcd'f'gh + abcfg'h' + abcefg'");
-    static ref THREE_KMAP: BitKmap =
-        BitKmap::parse(&"a'b'e'f'g'h + a'b'c'd'ef'g'h' + abfg'h' + abefg' + abef'gh' + abc'e'f'g");
-    static ref TWO_KMAP: BitKmap =
-        BitKmap::parse(&"a'b'fgh' + abch' + a'b'df'g'h' + a'b'cf'g'h' + abgh' + abd'f'g");
-}
-
-struct BitKmap {
-    matchings: Vec<(u8, u8)>,
-}
-
-impl BitKmap {
-    fn parse(s: &str) -> Self {
-        // Assumes a is bit n-1, and counts down
-        let bits = 8;
-        let parseProduct = |prod: &str| {
-            let mut neg = false;
-            let mut mask = 0;
-            let mut value = 0;
-
-            for c in prod.chars().rev() {
-                if c == '\'' {
-                    assert!(!neg, "Two negations in a row");
-                    neg = true;
-                } else {
-                    let ascii = c as u8;
-                    let index = bits - (ascii - 96);
-                    assert!(index < 26, "Character out of range");
-                    mask |= 1 << index;
-                    if !neg {
-                        value |= 1 << index;
-                    } else {
-                        neg = false;
-                    }
-                }
-            }
-            assert!(!neg, "Unused negation");
-            (mask, value)
-        };
-
-        BitKmap {
-            matchings: s.split(" + ").map(parseProduct).collect(),
-        }
-    }
-
-    fn test(&self, b: u8) -> bool {
-        self.matchings
-            .iter()
-            .any(|(mask, value)| (b & mask) == *value)
-    }
+    static ref INVALID_KMAP: ByteKmap =
+        ByteKmap::parse(&"abc'df'gh + abdefg'h + abcd'f'gh + abcfg'h' + abcefg'");
+    static ref THREE_KMAP: ByteKmap =
+        ByteKmap::parse(&"a'b'e'f'g'h + a'b'c'd'ef'g'h' + abfg'h' + abefg' + abef'gh' + abc'e'f'g");
+    static ref TWO_KMAP: ByteKmap =
+        ByteKmap::parse(&"a'b'fgh' + abch' + a'b'df'g'h' + a'b'cf'g'h' + abgh' + abd'f'g");
 }
 
 pub fn bytes_required(b: u8) -> u8 {
@@ -67,7 +24,7 @@ pub fn bytes_required(b: u8) -> u8 {
     if TWO_KMAP.test(b) {
         return 2;
     }
-    return 1;
+    1
 }
 
 #[cfg(test)]
