@@ -9,6 +9,8 @@ use std::io::Write;
 use dynasm::dynasm;
 use dynasmrt::{x64, DynasmApi, DynasmLabelApi};
 
+mod compiler;
+
 fn main() {
     let mut ops = x64::Assembler::new().unwrap();
 
@@ -22,9 +24,13 @@ fn main() {
 
     let goodbye_addr = ops.offset();
     dynasm!(ops
-        ; lea rdi, [<msg_label]
-        ; mov rsi, BYTE msg.len() as _
-        ; mov rax, QWORD print as _
+        ; mov rax, QWORD 0
+        ; mov al, BYTE 0xff as _
+        ; mov ah, BYTE 1
+        ; add ah, al
+        ; pushf
+        ; pop rdi
+        ; mov rax, QWORD printnum as _
         ; sub rsp, BYTE 0x8
         ; call rax
         ; add rsp, BYTE 0x8
@@ -38,11 +44,16 @@ fn main() {
     assert!(goodbye_fun());
 }
 
-pub extern "sysv64" fn print(s: *const u8, len: u64) -> bool {
+extern "sysv64" fn printnum(a: u64) -> bool {
+    println!("Number: {:08x}", a);
+    true
+}
+
+extern "sysv64" fn print(s: *const u8, len: u64) -> bool {
     print2(s, len)
 }
 
-pub extern "win64" fn print2(s: *const u8, len: u64) -> bool {
+extern "win64" fn print2(s: *const u8, len: u64) -> bool {
     io::stdout()
         .write_all(unsafe { slice::from_raw_parts(s, len as usize) })
         .is_ok()
