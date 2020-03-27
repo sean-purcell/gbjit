@@ -1,6 +1,9 @@
 use dynasmrt::AssemblyOffset;
 use dynasmrt::ExecutableBuffer;
 
+mod decoder;
+mod instruction;
+
 /// The number of instructions assembled for a block
 pub const INSTRUCTIONS_PER_BLOCK: usize = 256;
 /// The number of bytes required from memory to assemble a block

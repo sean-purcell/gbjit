@@ -1,6 +1,5 @@
 #![feature(proc_macro_hygiene)]
 extern crate dynasm;
-extern crate dynasmrt;
 
 use std::{io, mem, slice};
 

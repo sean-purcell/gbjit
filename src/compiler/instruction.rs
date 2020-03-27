@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, Copy)]
 pub enum Reg {
     AF,
     BC,
@@ -6,6 +7,7 @@ pub enum Reg {
     SP,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum HalfReg {
     A,
     F,
@@ -17,6 +19,7 @@ pub enum HalfReg {
     L,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum HalfWordId {
     RegVal(HalfReg),
     RegAddr(Reg),
@@ -25,6 +28,7 @@ pub enum HalfWordId {
     Imm(u8),
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum AluCommand {
     Add,
     Adc,
@@ -38,17 +42,20 @@ pub enum AluCommand {
     Dec,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum AluOperand {
     Reg(HalfReg),
     Imm(u8),
     Mem,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum BitOperand {
     Reg(HalfReg),
     Mem,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum BitCommand {
     Rlc,
     Rl,
@@ -62,6 +69,7 @@ pub enum BitCommand {
     Res(u8),
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum ControlCommand {
     Nop,
     Halt,
@@ -72,6 +80,7 @@ pub enum ControlCommand {
     Ei,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Condition {
     Always,
     Z,
@@ -80,12 +89,14 @@ pub enum Condition {
     Nc,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum JumpTarget {
     Imm(u16),
     Hl,
     Relative(i8),
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Command {
     LdHalf {
         src: HalfWordId,
@@ -133,9 +144,11 @@ pub enum Command {
     Rst(u8),
 }
 
+#[derive(Debug, Clone)]
 pub struct Instruction {
     pub cmd: Command,
     pub size: u8,
     pub cycles: u8,
     pub alt_cycles: Option<u8>,
+    pub encoding: Vec<u8>,
 }
