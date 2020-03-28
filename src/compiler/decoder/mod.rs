@@ -57,7 +57,7 @@ fn generate_parsers() -> [Option<Parser>; 256] {
     // Generated with:
     // minterms: 0,10,76,f3,fb
     fill(
-        ByteKmap::parse(&"a'b'c'e'f'g'h' + a'bcde'fgh' + abcdf'gh"),
+        ByteKmap::parse(&"a'b'c'e'f'g'h' + a'b'cdfgh + a'bcde'fgh' + abcdf'gh"),
         parse_control,
     );
 
@@ -81,8 +81,28 @@ fn parse_cb(bytes: &[u8]) -> DecodeResult {
 }
 
 fn parse_control(bytes: &[u8]) -> DecodeResult {
-    check_length(bytes, 1)?;
-    unimplemented!();
+    use ControlCommand::*;
+    let op = match bytes[0] {
+        0x00 => Nop,
+        0x76 => Halt,
+        0x10 => Stop,
+        0x3f => Ccf,
+        0x37 => Scf,
+        0xf3 => Di,
+        0xfb => Ei,
+        _ => unreachable!(),
+    };
+
+    let len = if op == Stop { 2 } else { 1 };
+    check_length(bytes, len)?;
+
+    Ok(Instruction {
+        cmd: Command::Control(op),
+        size: len as u8,
+        cycles: 4,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
 }
 
 fn parse_location(idx: u8) -> Location {
