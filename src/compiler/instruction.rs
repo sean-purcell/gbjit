@@ -113,7 +113,6 @@ pub enum Command {
     StoreSp {
         addr: u16,
     },
-    LdSpHl,
     Push(Reg),
     Pop(Reg),
     AluHalf {
@@ -133,6 +132,7 @@ pub enum Command {
     },
     AddSp(i8),
     HlSpOffset(i8),
+    LdSpHl,
     BitHalf {
         cmd: BitCommand,
         op: Location,

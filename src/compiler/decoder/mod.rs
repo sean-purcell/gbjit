@@ -81,8 +81,16 @@ fn generate_parsers() -> [Option<Parser>; 256] {
     fill(ByteKmap::parse(&"abc'f'g'h' + abc'ef'g'"), parse_ret);
     fill(ByteKmap::parse(&"abce'f'g'h'"), parse_ld_ioimm);
     fill(ByteKmap::parse(&"abe'g'h"), parse_pushpop);
-    fill(ByteKmap::parse(&"abc'd'e'f'g + abc'f'gh'"), parse_jp);
     fill(ByteKmap::parse(&"abce'f'gh'"), parse_ld_ioreg);
+    fill(ByteKmap::parse(&"abc'd'e'f'g + abc'f'gh'"), parse_jp);
+    fill(ByteKmap::parse(&"abc'fg'h' + abc'd'efg'"), parse_call);
+    fill(ByteKmap::parse(&"abfgh'"), parse_alu_imm);
+    fill(ByteKmap::parse(&"abfgh"), parse_rst);
+    fill(ByteKmap::single(0xE8), parse_add_sp);
+    fill(ByteKmap::single(0xF8), parse_hlsp_offset);
+    fill(ByteKmap::single(0xE9), parse_jp_hl);
+    fill(ByteKmap::single(0xF9), parse_ld_sphl);
+    fill(ByteKmap::parse(&"abcef'gh'"), parse_ld_absolute);
     fill(ByteKmap::single(0xCB), parse_cb);
 
     m
@@ -145,6 +153,21 @@ fn get_condition(byte: u8, base: u8) -> Condition {
     }
 }
 
+fn get_alu_cmd(byte: u8) -> AluCommand {
+    use AluCommand::*;
+    match byte & 7 {
+        0 => Add,
+        1 => Adc,
+        2 => Sub,
+        3 => Sbc,
+        4 => And,
+        5 => Xor,
+        6 => Or,
+        7 => Cp,
+        _ => unreachable!(),
+    }
+}
+
 fn parse_cb(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 2)?;
     unimplemented!();
@@ -192,6 +215,29 @@ fn parse_jr(bytes: &[u8]) -> DecodeResult {
     })
 }
 
+fn parse_jp(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 3)?;
+
+    let b = bytes[0];
+
+    let condition = get_condition(b, 0xc2);
+
+    let target = JumpTarget::Absolute(u16::from_le_bytes(bytes[1..3].try_into().unwrap()));
+
+    let (cycles, alt_cycles) = if condition == Condition::Always {
+        (16, None)
+    } else {
+        (16, Some(12))
+    };
+
+    Ok(Instruction {
+        cmd: Command::Jump { target, condition },
+        cycles,
+        alt_cycles,
+        encoding: bytes.to_vec(),
+    })
+}
+
 fn parse_ret(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 1)?;
 
@@ -217,25 +263,39 @@ fn parse_ret(bytes: &[u8]) -> DecodeResult {
     })
 }
 
-fn parse_jp(bytes: &[u8]) -> DecodeResult {
+fn parse_call(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 3)?;
 
     let b = bytes[0];
 
-    let condition = get_condition(b, 0xc2);
+    let condition = get_condition(b, 0xc4);
 
-    let target = JumpTarget::Absolute(u16::from_le_bytes(bytes[1..3].try_into().unwrap()));
+    let target = u16::from_le_bytes(bytes[1..3].try_into().unwrap());
 
     let (cycles, alt_cycles) = if condition == Condition::Always {
-        (16, None)
+        (24, None)
     } else {
-        (16, Some(12))
+        (24, Some(12))
     };
 
     Ok(Instruction {
-        cmd: Command::Jump { target, condition },
+        cmd: Command::Call { target, condition },
         cycles,
         alt_cycles,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_jp_hl(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+
+    Ok(Instruction {
+        cmd: Command::Jump {
+            target: JumpTarget::Hl,
+            condition: Condition::Always,
+        },
+        cycles: 4,
+        alt_cycles: None,
         encoding: bytes.to_vec(),
     })
 }
@@ -250,6 +310,26 @@ fn parse_ld_fullimm(bytes: &[u8]) -> DecodeResult {
     Ok(Instruction {
         cmd: Command::LdFullImm { dst, val },
         cycles: 12,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_ld_absolute(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 3)?;
+
+    let addr = HalfWordId::Addr(u16::from_le_bytes(bytes[1..3].try_into().unwrap()));
+    let a = HalfWordId::RegVal(HalfReg::A);
+
+    let (src, dst) = if bytes[0] & 1 == 0 {
+        (a, addr)
+    } else {
+        (addr, a)
+    };
+
+    Ok(Instruction {
+        cmd: Command::LdHalf { src, dst },
+        cycles: 16,
         alt_cycles: None,
         encoding: bytes.to_vec(),
     })
@@ -508,20 +588,8 @@ fn parse_pushpop(bytes: &[u8]) -> DecodeResult {
 fn parse_alu(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 1)?;
     let b = bytes[0];
-    let cmd = {
-        use AluCommand::*;
-        match (b >> 3) & 7 {
-            0 => Add,
-            1 => Adc,
-            2 => Sub,
-            3 => Sbc,
-            4 => And,
-            5 => Xor,
-            6 => Or,
-            7 => Cp,
-            _ => unreachable!(),
-        }
-    };
+
+    let cmd = get_alu_cmd(b >> 3);
 
     let op = get_location(b);
     let cycles = if op == Location::Mem { 8 } else { 4 };
@@ -532,6 +600,68 @@ fn parse_alu(bytes: &[u8]) -> DecodeResult {
             op: AluOperand::Loc(op),
         },
         cycles,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_alu_imm(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 2)?;
+    let b = bytes[0];
+
+    let cmd = get_alu_cmd(b >> 3);
+
+    let op = AluOperand::Imm(bytes[1]);
+
+    Ok(Instruction {
+        cmd: Command::AluHalf { cmd, op: op },
+        cycles: 8,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_rst(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+    let b = bytes[0];
+
+    let idx = b & 0x38;
+    Ok(Instruction {
+        cmd: Command::Rst(idx),
+        cycles: 16,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_add_sp(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 2)?;
+
+    Ok(Instruction {
+        cmd: Command::AddSp(bytes[1] as i8),
+        cycles: 16,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_hlsp_offset(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 2)?;
+
+    Ok(Instruction {
+        cmd: Command::HlSpOffset(bytes[1] as i8),
+        cycles: 12,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_ld_sphl(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+
+    Ok(Instruction {
+        cmd: Command::LdSpHl,
+        cycles: 8,
         alt_cycles: None,
         encoding: bytes.to_vec(),
     })
@@ -716,6 +846,54 @@ mod test {
             Command::Jump {
                 target: JumpTarget::Absolute(0xdead),
                 condition: Condition::Nc
+            }
+        );
+
+        let xd4 = decode(&[0xd4, 0xad, 0xde]).unwrap();
+        assert_eq!(
+            xd4.cmd,
+            Command::Call {
+                target: 0xdead,
+                condition: Condition::Nc
+            }
+        );
+
+        let xee = decode(&[0xee, 0x42]).unwrap();
+        assert_eq!(
+            xee.cmd,
+            Command::AluHalf {
+                cmd: AluCommand::Xor,
+                op: AluOperand::Imm(0x42),
+            }
+        );
+
+        let xcf = decode(&[0xcf]).unwrap();
+        assert_eq!(xcf.cmd, Command::Rst(0x08));
+
+        let xe8 = decode(&[0xe8, 0xf0]).unwrap();
+        assert_eq!(xe8.cmd, Command::AddSp(-16));
+
+        let xf8 = decode(&[0xf8, 0xf0]).unwrap();
+        assert_eq!(xf8.cmd, Command::HlSpOffset(-16));
+
+        let xe9 = decode(&[0xe9]).unwrap();
+        assert_eq!(
+            xe9.cmd,
+            Command::Jump {
+                target: JumpTarget::Hl,
+                condition: Condition::Always,
+            },
+        );
+
+        let xf9 = decode(&[0xf9]).unwrap();
+        assert_eq!(xf9.cmd, Command::LdSpHl);
+
+        let xea = decode(&[0xea, 0xad, 0xde]).unwrap();
+        assert_eq!(
+            xea.cmd,
+            Command::LdHalf {
+                src: HalfWordId::RegVal(HalfReg::A),
+                dst: HalfWordId::Addr(0xdead),
             }
         );
     }
