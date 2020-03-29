@@ -109,6 +109,9 @@ pub enum Command {
         dst: Reg,
         val: u16,
     },
+    StoreSp {
+        addr: u16,
+    },
     LdSpHl,
     Push(Reg),
     Pop(Reg),

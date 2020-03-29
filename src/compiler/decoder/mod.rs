@@ -73,6 +73,10 @@ fn generate_parsers() -> [Option<Parser>; 256] {
     fill(ByteKmap::parse(&"a'b'f'gh"), parse_incdec_full);
     fill(ByteKmap::parse(&"a'b'fg'"), parse_incdec_half);
     fill(ByteKmap::parse(&"a'b'fgh'"), parse_ld_halfimm);
+    fill(ByteKmap::parse(&"a'b'c'fgh"), parse_rot_a);
+    fill(ByteKmap::parse(&"a'b'cd'fgh"), parse_daacpl);
+    fill(ByteKmap::single(0x08), parse_store_sp);
+    fill(ByteKmap::parse(&"a'b'ef'g'h"), parse_add_hl);
     fill(ByteKmap::parse(&"ab'"), parse_alu);
     fill(ByteKmap::parse(&"a'b"), parse_ld);
 
@@ -89,7 +93,7 @@ fn check_length(bytes: &[u8], expected: usize) -> Result<(), DecodeError> {
     }
 }
 
-fn parse_location(idx: u8) -> Location {
+fn get_location(idx: u8) -> Location {
     use HalfReg::*;
     use Location::*;
     match idx & 7 {
@@ -101,6 +105,17 @@ fn parse_location(idx: u8) -> Location {
         5 => Reg(L),
         6 => Mem,
         7 => Reg(A),
+        _ => unreachable!(),
+    }
+}
+
+fn get_fullreg(idx: u8) -> Reg {
+    use Reg::*;
+    match idx & 3 {
+        0 => BC,
+        1 => DE,
+        2 => HL,
+        3 => SP,
         _ => unreachable!(),
     }
 }
@@ -164,16 +179,7 @@ fn parse_jr(bytes: &[u8]) -> DecodeResult {
 fn parse_ld_fullimm(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 3)?;
 
-    let dst = {
-        use Reg::*;
-        match (bytes[0] >> 4) & 3 {
-            0 => BC,
-            1 => DE,
-            2 => HL,
-            3 => SP,
-            _ => unreachable!(),
-        }
-    };
+    let dst = get_fullreg(bytes[0] >> 4);
 
     let val = u16::from_le_bytes(bytes[1..3].try_into().unwrap());
 
@@ -205,16 +211,7 @@ fn parse_incdec_full(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 1)?;
     let b = bytes[0];
 
-    let reg = {
-        use Reg::*;
-        match (bytes[0] >> 4) & 3 {
-            0 => BC,
-            1 => DE,
-            2 => HL,
-            3 => SP,
-            _ => unreachable!(),
-        }
-    };
+    let reg = get_fullreg(bytes[0] >> 4);
 
     let inc = b & 0x8 == 0;
 
@@ -230,7 +227,7 @@ fn parse_incdec_half(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 1)?;
     let b = bytes[0];
 
-    let loc = parse_location(b >> 3);
+    let loc = get_location(b >> 3);
     let inc = b & 1 == 0;
 
     let cycles = if loc == Location::Mem { 12 } else { 4 };
@@ -249,7 +246,7 @@ fn parse_ld_halfimm(bytes: &[u8]) -> DecodeResult {
 
     let src = HalfWordId::Imm(bytes[1]);
 
-    let (dst, cycles) = match parse_location(b >> 3) {
+    let (dst, cycles) = match get_location(b >> 3) {
         Location::Reg(r) => (HalfWordId::RegVal(r), 8),
         Location::Mem => (HalfWordId::RegAddr(Reg::HL), 12),
     };
@@ -262,6 +259,77 @@ fn parse_ld_halfimm(bytes: &[u8]) -> DecodeResult {
     })
 }
 
+fn parse_rot_a(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+    let b = bytes[0];
+
+    let cmd = {
+        use BitCommand::*;
+        match (b >> 3) & 3 {
+            0 => Rlc,
+            1 => Rrc,
+            2 => Rl,
+            3 => Rr,
+            _ => unreachable!(),
+        }
+    };
+
+    let op = Location::Reg(HalfReg::A);
+
+    Ok(Instruction {
+        cmd: Command::BitHalf { cmd, op },
+        cycles: 4,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_daacpl(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+    let b = bytes[0];
+
+    let cmd = {
+        match (b >> 3) & 1 {
+            0 => Command::Daa,
+            1 => Command::Cpl,
+            _ => unreachable!(),
+        }
+    };
+
+    Ok(Instruction {
+        cmd,
+        cycles: 4,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_store_sp(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 3)?;
+
+    let addr = u16::from_le_bytes(bytes[1..3].try_into().unwrap());
+
+    Ok(Instruction {
+        cmd: Command::StoreSp { addr },
+        cycles: 20,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_add_hl(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+
+    let reg = get_fullreg(bytes[0] >> 4);
+
+    Ok(Instruction {
+        cmd: Command::AddHl(reg),
+        cycles: 8,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
 fn parse_ld(bytes: &[u8]) -> DecodeResult {
     use HalfWordId::*;
 
@@ -269,12 +337,12 @@ fn parse_ld(bytes: &[u8]) -> DecodeResult {
     let b = bytes[0];
 
     let hl = RegAddr(Reg::HL);
-    let src = match parse_location(b) {
+    let src = match get_location(b) {
         Location::Reg(r) => RegVal(r),
         Location::Mem => hl,
     };
 
-    let dst = match parse_location(b >> 3) {
+    let dst = match get_location(b >> 3) {
         Location::Reg(r) => RegVal(r),
         Location::Mem => hl,
     };
@@ -330,7 +398,7 @@ fn parse_alu(bytes: &[u8]) -> DecodeResult {
         }
     };
 
-    let op = parse_location(b);
+    let op = get_location(b);
     let cycles = if op == Location::Mem { 8 } else { 4 };
 
     Ok(Instruction {
@@ -459,5 +527,23 @@ mod test {
                 dst: HalfWordId::RegVal(HalfReg::H),
             }
         );
+
+        let x0f = decode(&[0x0f]).unwrap();
+        assert_eq!(
+            x0f.cmd,
+            BitHalf {
+                cmd: BitCommand::Rrc,
+                op: Location::Reg(HalfReg::A),
+            }
+        );
+
+        let x27 = decode(&[0x27]).unwrap();
+        assert_eq!(x27.cmd, Daa);
+
+        let x08 = decode(&[0x08, 0xad, 0xde]).unwrap();
+        assert_eq!(x08.cmd, Command::StoreSp { addr: 0xdead });
+
+        let x39 = decode(&[0x39]).unwrap();
+        assert_eq!(x39.cmd, Command::AddHl(Reg::SP));
     }
 }
