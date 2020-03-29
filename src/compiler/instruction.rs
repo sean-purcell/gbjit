@@ -103,7 +103,7 @@ pub enum Command {
         inc: bool,
         load: bool,
     },
-    LdFullIm {
+    LdFullImm {
         dst: Reg,
         val: u16,
     },
@@ -144,8 +144,13 @@ pub enum Command {
 #[derive(PartialEq, Debug, Clone)]
 pub struct Instruction {
     pub cmd: Command,
-    pub size: u8,
     pub cycles: u8,
     pub alt_cycles: Option<u8>,
     pub encoding: Vec<u8>,
+}
+
+impl Instruction {
+    pub fn size(&self) -> u8 {
+        self.encoding.len() as u8
+    }
 }
