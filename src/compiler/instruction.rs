@@ -63,6 +63,7 @@ pub enum BitCommand {
     Rr,
     Sla,
     Sra,
+    Swap,
     Srl,
     Bit(u8),
     Set(u8),

@@ -177,8 +177,45 @@ fn get_immediate(bytes: &[u8]) -> Result<u16, DecodeError> {
 }
 
 fn parse_cb(bytes: &[u8]) -> DecodeResult {
+    use BitCommand::*;
+
     check_length(bytes, 2)?;
-    unimplemented!();
+
+    let b = bytes[1];
+
+    let section = b >> 6;
+    let id = (b >> 3) & 7;
+
+    let cmd = if section == 0 {
+        match id {
+            0 => Rlc,
+            1 => Rrc,
+            2 => Rl,
+            3 => Rr,
+            4 => Sla,
+            5 => Sra,
+            6 => Swap,
+            7 => Srl,
+            _ => unreachable!(),
+        }
+    } else if section == 1 {
+        Bit(id)
+    } else if section == 2 {
+        Res(id)
+    } else {
+        Set(id)
+    };
+
+    let op = get_location(b);
+
+    let cycles = if op == Location::Mem { 16 } else { 8 };
+
+    Ok(Instruction {
+        cmd: Command::BitHalf { cmd, op },
+        cycles,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
 }
 
 fn parse_control(bytes: &[u8]) -> DecodeResult {
@@ -622,7 +659,7 @@ fn parse_alu_imm(bytes: &[u8]) -> DecodeResult {
     let op = AluOperand::Imm(bytes[1]);
 
     Ok(Instruction {
-        cmd: Command::AluHalf { cmd, op: op },
+        cmd: Command::AluHalf { cmd, op },
         cycles: 8,
         alt_cycles: None,
         encoding: bytes.to_vec(),
@@ -698,211 +735,206 @@ mod test {
     fn spot_check() {
         use Command::*;
 
-        let xac = decode(&[0xac]).unwrap();
-        assert_eq!(
-            xac.cmd,
+        let test = |bytes, cmd| {
+            let decoded = decode(bytes).unwrap();
+            assert_eq!(decoded.cmd, cmd);
+        };
+
+        test(
+            &[0xac],
             AluHalf {
                 cmd: AluCommand::Xor,
-                op: AluOperand::Loc(Location::Reg(HalfReg::H))
-            }
+                op: AluOperand::Loc(Location::Reg(HalfReg::H)),
+            },
         );
 
-        let x5e = decode(&[0x5e]).unwrap();
-        assert_eq!(
-            x5e.cmd,
+        test(
+            &[0x5e],
             LdHalf {
                 src: HalfWordId::RegAddr(Reg::HL),
                 dst: HalfWordId::RegVal(HalfReg::E),
-            }
+            },
         );
 
-        let x76 = decode(&[0x76]).unwrap();
-        assert_eq!(x76.cmd, Control(ControlCommand::Halt));
+        test(&[0x76], Control(ControlCommand::Halt));
 
-        let x12 = decode(&[0x12]).unwrap();
-        assert_eq!(
-            x12.cmd,
+        test(
+            &[0x12],
             LdHalf {
                 src: HalfWordId::RegVal(HalfReg::A),
                 dst: HalfWordId::RegAddr(Reg::DE),
-            }
+            },
         );
 
-        let x18 = decode(&[0x18, 0xf0]).unwrap();
-        assert_eq!(
-            x18.cmd,
+        test(
+            &[0x18, 0xf0],
             Jump {
                 target: JumpTarget::Relative(-16),
-                condition: Condition::Always
-            }
+                condition: Condition::Always,
+            },
         );
 
-        let x21 = decode(&[0x21, 0xad, 0xde]).unwrap();
-        assert_eq!(
-            x21.cmd,
+        test(
+            &[0x21, 0xad, 0xde],
             LdFullImm {
                 dst: Reg::HL,
-                val: 0xdead
-            }
+                val: 0xdead,
+            },
         );
 
-        let x3a = decode(&[0x3a]).unwrap();
-        assert_eq!(
-            x3a.cmd,
+        test(
+            &[0x3a],
             LdAddrInc {
                 inc: false,
                 load: true,
-            }
+            },
         );
 
-        let x33 = decode(&[0x33]).unwrap();
-        assert_eq!(
-            x33.cmd,
+        test(
+            &[0x33],
             IncDecFull {
                 reg: Reg::SP,
                 inc: true,
-            }
+            },
         );
 
-        let x35 = decode(&[0x35]).unwrap();
-        assert_eq!(
-            x35.cmd,
+        test(
+            &[0x35],
             IncDecHalf {
                 loc: Location::Mem,
                 inc: false,
-            }
+            },
         );
 
-        let x1c = decode(&[0x1c]).unwrap();
-        assert_eq!(
-            x1c.cmd,
+        test(
+            &[0x1c],
             IncDecHalf {
                 loc: Location::Reg(HalfReg::E),
                 inc: true,
-            }
+            },
         );
 
-        let x26 = decode(&[0x26, 26]).unwrap();
-        assert_eq!(
-            x26.cmd,
+        test(
+            &[0x26, 26],
             LdHalf {
                 src: HalfWordId::Imm(26),
                 dst: HalfWordId::RegVal(HalfReg::H),
-            }
+            },
         );
 
-        let x0f = decode(&[0x0f]).unwrap();
-        assert_eq!(
-            x0f.cmd,
+        test(
+            &[0x0f],
             BitHalf {
                 cmd: BitCommand::Rrc,
                 op: Location::Reg(HalfReg::A),
-            }
+            },
         );
 
-        let x27 = decode(&[0x27]).unwrap();
-        assert_eq!(x27.cmd, Daa);
+        test(&[0x27], Daa);
 
-        let x08 = decode(&[0x08, 0xad, 0xde]).unwrap();
-        assert_eq!(x08.cmd, Command::StoreSp { addr: 0xdead });
+        test(&[0x08, 0xad, 0xde], Command::StoreSp { addr: 0xdead });
 
-        let x39 = decode(&[0x39]).unwrap();
-        assert_eq!(x39.cmd, Command::AddHl(Reg::SP));
+        test(&[0x39], Command::AddHl(Reg::SP));
 
-        let xc8 = decode(&[0xc8]).unwrap();
-        assert_eq!(
-            xc8.cmd,
+        test(
+            &[0xc8],
             Command::Ret {
                 condition: Condition::Z,
-                intenable: false
-            }
+                intenable: false,
+            },
         );
 
-        let xd9 = decode(&[0xd9]).unwrap();
-        assert_eq!(
-            xd9.cmd,
+        test(
+            &[0xd9],
             Command::Ret {
                 condition: Condition::Always,
-                intenable: true
-            }
+                intenable: true,
+            },
         );
 
-        let xe0 = decode(&[0xe0, 0x44]).unwrap();
-        assert_eq!(
-            xe0.cmd,
+        test(
+            &[0xe0, 0x44],
             Command::LdHalf {
                 src: HalfWordId::RegVal(HalfReg::A),
                 dst: HalfWordId::IoImmAddr(0x44),
-            }
+            },
         );
 
-        let xf2 = decode(&[0xf2]).unwrap();
-        assert_eq!(
-            xf2.cmd,
+        test(
+            &[0xf2],
             Command::LdHalf {
                 src: HalfWordId::IoRegAddr(HalfReg::C),
                 dst: HalfWordId::RegVal(HalfReg::A),
-            }
+            },
         );
 
-        let xf5 = decode(&[0xf5]).unwrap();
-        assert_eq!(xf5.cmd, Command::Push(Reg::AF));
+        test(&[0xf5], Command::Push(Reg::AF));
 
-        let xd2 = decode(&[0xd2, 0xad, 0xde]).unwrap();
-        assert_eq!(
-            xd2.cmd,
+        test(
+            &[0xd2, 0xad, 0xde],
             Command::Jump {
                 target: JumpTarget::Absolute(0xdead),
-                condition: Condition::Nc
-            }
+                condition: Condition::Nc,
+            },
         );
 
-        let xd4 = decode(&[0xd4, 0xad, 0xde]).unwrap();
-        assert_eq!(
-            xd4.cmd,
+        test(
+            &[0xd4, 0xad, 0xde],
             Command::Call {
                 target: 0xdead,
-                condition: Condition::Nc
-            }
+                condition: Condition::Nc,
+            },
         );
 
-        let xee = decode(&[0xee, 0x42]).unwrap();
-        assert_eq!(
-            xee.cmd,
+        test(
+            &[0xee, 0x42],
             Command::AluHalf {
                 cmd: AluCommand::Xor,
                 op: AluOperand::Imm(0x42),
-            }
+            },
         );
 
-        let xcf = decode(&[0xcf]).unwrap();
-        assert_eq!(xcf.cmd, Command::Rst(0x08));
+        test(&[0xcf], Command::Rst(0x08));
 
-        let xe8 = decode(&[0xe8, 0xf0]).unwrap();
-        assert_eq!(xe8.cmd, Command::AddSp(-16));
+        test(&[0xe8, 0xf0], Command::AddSp(-16));
 
-        let xf8 = decode(&[0xf8, 0xf0]).unwrap();
-        assert_eq!(xf8.cmd, Command::HlSpOffset(-16));
+        test(&[0xf8, 0xf0], Command::HlSpOffset(-16));
 
-        let xe9 = decode(&[0xe9]).unwrap();
-        assert_eq!(
-            xe9.cmd,
+        test(
+            &[0xe9],
             Command::Jump {
                 target: JumpTarget::Hl,
                 condition: Condition::Always,
             },
         );
 
-        let xf9 = decode(&[0xf9]).unwrap();
-        assert_eq!(xf9.cmd, Command::LdSpHl);
+        test(&[0xf9], Command::LdSpHl);
 
-        let xea = decode(&[0xea, 0xad, 0xde]).unwrap();
-        assert_eq!(
-            xea.cmd,
+        test(
+            &[0xea, 0xad, 0xde],
             Command::LdHalf {
                 src: HalfWordId::RegVal(HalfReg::A),
                 dst: HalfWordId::Addr(0xdead),
-            }
+            },
         );
+    }
+
+    #[test]
+    fn cb_spot_check() {
+        use BitCommand::*;
+        use Command::*;
+        use HalfReg::*;
+        use Location::*;
+
+        let test = |byte, cmd, op| {
+            let decoded = decode(&[0xcb, byte]).unwrap();
+            assert_eq!(decoded.cmd, BitHalf { cmd, op });
+        };
+
+        test(0x24, Sla, Reg(H));
+        test(0x1e, Rr, Mem);
+        test(0x68, Bit(5), Reg(B));
+        test(0xb1, Res(6), Reg(C));
+        test(0xff, Set(7), Reg(A));
     }
 }
