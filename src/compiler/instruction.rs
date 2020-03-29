@@ -119,8 +119,14 @@ pub enum Command {
     Daa,
     Cpl,
     AddHl(Reg),
-    IncReg(Reg),
-    DecReg(Reg),
+    IncDecHalf {
+        loc: Location,
+        inc: bool,
+    },
+    IncDecFull {
+        reg: Reg,
+        inc: bool,
+    },
     AddSp(i8),
     HlSpOffset(i8),
     BitHalf {

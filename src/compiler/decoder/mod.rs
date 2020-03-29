@@ -50,12 +50,16 @@ fn generate_parsers() -> [Option<Parser>; 256] {
 
     let mut fill = |kmap: ByteKmap, parser| {
         for i in kmap.enumerate().iter() {
+            // Don't overwrite things.  This makes it easier to do things like the "HALT" cut out
+            // in the ld block.
             if m[*i as usize].is_none() {
                 m[*i as usize] = Some(parser);
             }
         }
     };
 
+    // Use the kmaps to efficiently indicate the target set, but use them to fill a table so that
+    // runtime is fast
     fill(
         ByteKmap::parse(&"a'b'c'e'f'g'h' + a'b'cdfgh + a'bcde'fgh' + abcdf'gh"),
         parse_control,
@@ -65,6 +69,10 @@ fn generate_parsers() -> [Option<Parser>; 256] {
     fill(ByteKmap::parse(&"a'b'e'f'g'h"), parse_ld_fullimm);
 
     fill(ByteKmap::parse(&"a'b'c'f'gh'"), parse_ld_regaddr);
+    fill(ByteKmap::parse(&"a'b'cf'gh'"), parse_ld_addrinc);
+    fill(ByteKmap::parse(&"a'b'f'gh"), parse_incdec_full);
+    fill(ByteKmap::parse(&"a'b'fg'"), parse_incdec_half);
+    fill(ByteKmap::parse(&"a'b'fgh'"), parse_ld_halfimm);
     fill(ByteKmap::parse(&"ab'"), parse_alu);
     fill(ByteKmap::parse(&"a'b"), parse_ld);
 
@@ -78,6 +86,22 @@ fn check_length(bytes: &[u8], expected: usize) -> Result<(), DecodeError> {
         Err(DecodeError::WrongByteCount)
     } else {
         Ok(())
+    }
+}
+
+fn parse_location(idx: u8) -> Location {
+    use HalfReg::*;
+    use Location::*;
+    match idx & 7 {
+        0 => Reg(B),
+        1 => Reg(C),
+        2 => Reg(D),
+        3 => Reg(E),
+        4 => Reg(H),
+        5 => Reg(L),
+        6 => Mem,
+        7 => Reg(A),
+        _ => unreachable!(),
     }
 }
 
@@ -161,20 +185,81 @@ fn parse_ld_fullimm(bytes: &[u8]) -> DecodeResult {
     })
 }
 
-fn parse_location(idx: u8) -> Location {
-    use HalfReg::*;
-    use Location::*;
-    match idx & 7 {
-        0 => Reg(B),
-        1 => Reg(C),
-        2 => Reg(D),
-        3 => Reg(E),
-        4 => Reg(H),
-        5 => Reg(L),
-        6 => Mem,
-        7 => Reg(A),
-        _ => unreachable!(),
-    }
+fn parse_ld_addrinc(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+
+    let b = bytes[0];
+
+    let inc = b & 0x10 == 0;
+    let load = b & 0x8 != 0;
+
+    Ok(Instruction {
+        cmd: Command::LdAddrInc { inc, load },
+        cycles: 8,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_incdec_full(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+    let b = bytes[0];
+
+    let reg = {
+        use Reg::*;
+        match (bytes[0] >> 4) & 3 {
+            0 => BC,
+            1 => DE,
+            2 => HL,
+            3 => SP,
+            _ => unreachable!(),
+        }
+    };
+
+    let inc = b & 0x8 == 0;
+
+    Ok(Instruction {
+        cmd: Command::IncDecFull { reg, inc },
+        cycles: 8,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_incdec_half(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+    let b = bytes[0];
+
+    let loc = parse_location(b >> 3);
+    let inc = b & 1 == 0;
+
+    let cycles = if loc == Location::Mem { 12 } else { 4 };
+
+    Ok(Instruction {
+        cmd: Command::IncDecHalf { loc, inc },
+        cycles,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_ld_halfimm(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 2)?;
+    let b = bytes[0];
+
+    let src = HalfWordId::Imm(bytes[1]);
+
+    let (dst, cycles) = match parse_location(b >> 3) {
+        Location::Reg(r) => (HalfWordId::RegVal(r), 8),
+        Location::Mem => (HalfWordId::RegAddr(Reg::HL), 12),
+    };
+
+    Ok(Instruction {
+        cmd: Command::LdHalf { src, dst },
+        cycles,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
 }
 
 fn parse_ld(bytes: &[u8]) -> DecodeResult {
@@ -327,6 +412,51 @@ mod test {
             LdFullImm {
                 dst: Reg::HL,
                 val: 0xdead
+            }
+        );
+
+        let x3a = decode(&[0x3a]).unwrap();
+        assert_eq!(
+            x3a.cmd,
+            LdAddrInc {
+                inc: false,
+                load: true,
+            }
+        );
+
+        let x33 = decode(&[0x33]).unwrap();
+        assert_eq!(
+            x33.cmd,
+            IncDecFull {
+                reg: Reg::SP,
+                inc: true,
+            }
+        );
+
+        let x35 = decode(&[0x35]).unwrap();
+        assert_eq!(
+            x35.cmd,
+            IncDecHalf {
+                loc: Location::Mem,
+                inc: false,
+            }
+        );
+
+        let x1c = decode(&[0x1c]).unwrap();
+        assert_eq!(
+            x1c.cmd,
+            IncDecHalf {
+                loc: Location::Reg(HalfReg::E),
+                inc: true,
+            }
+        );
+
+        let x26 = decode(&[0x26, 26]).unwrap();
+        assert_eq!(
+            x26.cmd,
+            LdHalf {
+                src: HalfWordId::Imm(26),
+                dst: HalfWordId::RegVal(HalfReg::H),
             }
         );
     }
