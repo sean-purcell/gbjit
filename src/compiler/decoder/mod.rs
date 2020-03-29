@@ -168,6 +168,14 @@ fn get_alu_cmd(byte: u8) -> AluCommand {
     }
 }
 
+fn get_immediate(bytes: &[u8]) -> Result<u16, DecodeError> {
+    if bytes.len() < 3 {
+        Err(DecodeError::WrongByteCount)
+    } else {
+        Ok(u16::from_le_bytes(bytes[1..3].try_into().unwrap()))
+    }
+}
+
 fn parse_cb(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 2)?;
     unimplemented!();
@@ -222,7 +230,7 @@ fn parse_jp(bytes: &[u8]) -> DecodeResult {
 
     let condition = get_condition(b, 0xc2);
 
-    let target = JumpTarget::Absolute(u16::from_le_bytes(bytes[1..3].try_into().unwrap()));
+    let target = JumpTarget::Absolute(get_immediate(bytes)?);
 
     let (cycles, alt_cycles) = if condition == Condition::Always {
         (16, None)
@@ -270,7 +278,7 @@ fn parse_call(bytes: &[u8]) -> DecodeResult {
 
     let condition = get_condition(b, 0xc4);
 
-    let target = u16::from_le_bytes(bytes[1..3].try_into().unwrap());
+    let target = get_immediate(bytes)?;
 
     let (cycles, alt_cycles) = if condition == Condition::Always {
         (24, None)
@@ -305,7 +313,7 @@ fn parse_ld_fullimm(bytes: &[u8]) -> DecodeResult {
 
     let dst = get_fullreg(bytes[0] >> 4, true);
 
-    let val = u16::from_le_bytes(bytes[1..3].try_into().unwrap());
+    let val = get_immediate(bytes)?;
 
     Ok(Instruction {
         cmd: Command::LdFullImm { dst, val },
@@ -318,7 +326,7 @@ fn parse_ld_fullimm(bytes: &[u8]) -> DecodeResult {
 fn parse_ld_absolute(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 3)?;
 
-    let addr = HalfWordId::Addr(u16::from_le_bytes(bytes[1..3].try_into().unwrap()));
+    let addr = HalfWordId::Addr(get_immediate(bytes)?);
     let a = HalfWordId::RegVal(HalfReg::A);
 
     let (src, dst) = if bytes[0] & 1 == 0 {
@@ -451,7 +459,7 @@ fn parse_daacpl(bytes: &[u8]) -> DecodeResult {
 fn parse_store_sp(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 3)?;
 
-    let addr = u16::from_le_bytes(bytes[1..3].try_into().unwrap());
+    let addr = get_immediate(bytes)?;
 
     Ok(Instruction {
         cmd: Command::StoreSp { addr },
