@@ -26,7 +26,8 @@ pub enum HalfWordId {
     RegVal(HalfReg),
     RegAddr(Reg),
     Addr(u16),
-    IoAddr(u8),
+    IoImmAddr(u8),
+    IoRegAddr(HalfReg),
     Imm(u8),
 }
 
@@ -90,7 +91,7 @@ pub enum Condition {
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum JumpTarget {
-    Imm(u16),
+    Absolute(u16),
     Hl,
     Relative(i8),
 }
@@ -147,7 +148,7 @@ pub enum Command {
     },
     Ret {
         condition: Condition,
-        enable: bool,
+        intenable: bool,
     },
     Rst(u8),
 }

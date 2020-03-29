@@ -67,7 +67,6 @@ fn generate_parsers() -> [Option<Parser>; 256] {
 
     fill(ByteKmap::parse(&"a'b'def'g'h' + a'b'cf'g'h'"), parse_jr);
     fill(ByteKmap::parse(&"a'b'e'f'g'h"), parse_ld_fullimm);
-
     fill(ByteKmap::parse(&"a'b'c'f'gh'"), parse_ld_regaddr);
     fill(ByteKmap::parse(&"a'b'cf'gh'"), parse_ld_addrinc);
     fill(ByteKmap::parse(&"a'b'f'gh"), parse_incdec_full);
@@ -79,7 +78,11 @@ fn generate_parsers() -> [Option<Parser>; 256] {
     fill(ByteKmap::parse(&"a'b'ef'g'h"), parse_add_hl);
     fill(ByteKmap::parse(&"ab'"), parse_alu);
     fill(ByteKmap::parse(&"a'b"), parse_ld);
-
+    fill(ByteKmap::parse(&"abc'f'g'h' + abc'ef'g'"), parse_ret);
+    fill(ByteKmap::parse(&"abce'f'g'h'"), parse_ld_ioimm);
+    fill(ByteKmap::parse(&"abe'g'h"), parse_pushpop);
+    fill(ByteKmap::parse(&"abc'd'e'f'g + abc'f'gh'"), parse_jp);
+    fill(ByteKmap::parse(&"abce'f'gh'"), parse_ld_ioreg);
     fill(ByteKmap::single(0xCB), parse_cb);
 
     m
@@ -109,14 +112,36 @@ fn get_location(idx: u8) -> Location {
     }
 }
 
-fn get_fullreg(idx: u8) -> Reg {
+fn get_fullreg(idx: u8, sp: bool) -> Reg {
     use Reg::*;
     match idx & 3 {
         0 => BC,
         1 => DE,
         2 => HL,
-        3 => SP,
+        3 => {
+            if sp {
+                SP
+            } else {
+                AF
+            }
+        }
         _ => unreachable!(),
+    }
+}
+
+fn get_condition(byte: u8, base: u8) -> Condition {
+    use Condition::*;
+    let mask = 0x18;
+    if (byte & !mask) != base {
+        Always
+    } else {
+        match byte & mask {
+            0x00 => Nz,
+            0x10 => Nc,
+            0x08 => Z,
+            0x18 => C,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -150,18 +175,9 @@ fn parse_control(bytes: &[u8]) -> DecodeResult {
 }
 
 fn parse_jr(bytes: &[u8]) -> DecodeResult {
-    use Condition::*;
-
     check_length(bytes, 2)?;
 
-    let condition = match bytes[0] {
-        0x20 => Nz,
-        0x30 => Nc,
-        0x28 => Z,
-        0x38 => C,
-        0x18 => Always,
-        _ => unreachable!(),
-    };
+    let condition = get_condition(bytes[0], 0x20);
 
     let offset = bytes[1] as i8;
 
@@ -176,10 +192,58 @@ fn parse_jr(bytes: &[u8]) -> DecodeResult {
     })
 }
 
+fn parse_ret(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+
+    let b = bytes[0];
+
+    let condition = get_condition(b, 0xc0);
+    let intenable = b == 0xd9;
+
+    let (cycles, alt_cycles) = if condition == Condition::Always {
+        (16, None)
+    } else {
+        (20, Some(8))
+    };
+
+    Ok(Instruction {
+        cmd: Command::Ret {
+            condition,
+            intenable,
+        },
+        cycles,
+        alt_cycles,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_jp(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 3)?;
+
+    let b = bytes[0];
+
+    let condition = get_condition(b, 0xc2);
+
+    let target = JumpTarget::Absolute(u16::from_le_bytes(bytes[1..3].try_into().unwrap()));
+
+    let (cycles, alt_cycles) = if condition == Condition::Always {
+        (16, None)
+    } else {
+        (16, Some(12))
+    };
+
+    Ok(Instruction {
+        cmd: Command::Jump { target, condition },
+        cycles,
+        alt_cycles,
+        encoding: bytes.to_vec(),
+    })
+}
+
 fn parse_ld_fullimm(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 3)?;
 
-    let dst = get_fullreg(bytes[0] >> 4);
+    let dst = get_fullreg(bytes[0] >> 4, true);
 
     let val = u16::from_le_bytes(bytes[1..3].try_into().unwrap());
 
@@ -211,7 +275,7 @@ fn parse_incdec_full(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 1)?;
     let b = bytes[0];
 
-    let reg = get_fullreg(bytes[0] >> 4);
+    let reg = get_fullreg(bytes[0] >> 4, true);
 
     let inc = b & 0x8 == 0;
 
@@ -320,7 +384,7 @@ fn parse_store_sp(bytes: &[u8]) -> DecodeResult {
 fn parse_add_hl(bytes: &[u8]) -> DecodeResult {
     check_length(bytes, 1)?;
 
-    let reg = get_fullreg(bytes[0] >> 4);
+    let reg = get_fullreg(bytes[0] >> 4, true);
 
     Ok(Instruction {
         cmd: Command::AddHl(reg),
@@ -375,6 +439,67 @@ fn parse_ld_regaddr(bytes: &[u8]) -> DecodeResult {
     Ok(Instruction {
         cmd: Command::LdHalf { src, dst },
         cycles: 8,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_ld_ioimm(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 2)?;
+    let b = bytes[0];
+
+    let addr = HalfWordId::IoImmAddr(bytes[1]);
+    let reg = HalfWordId::RegVal(HalfReg::A);
+
+    let (src, dst) = if b & 0x10 == 0 {
+        (reg, addr)
+    } else {
+        (addr, reg)
+    };
+
+    Ok(Instruction {
+        cmd: Command::LdHalf { src, dst },
+        cycles: 12,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_ld_ioreg(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+    let b = bytes[0];
+
+    let addr = HalfWordId::IoRegAddr(HalfReg::C);
+    let reg = HalfWordId::RegVal(HalfReg::A);
+
+    let (src, dst) = if b & 0x10 == 0 {
+        (reg, addr)
+    } else {
+        (addr, reg)
+    };
+
+    Ok(Instruction {
+        cmd: Command::LdHalf { src, dst },
+        cycles: 8,
+        alt_cycles: None,
+        encoding: bytes.to_vec(),
+    })
+}
+
+fn parse_pushpop(bytes: &[u8]) -> DecodeResult {
+    check_length(bytes, 1)?;
+    let b = bytes[0];
+
+    let reg = get_fullreg(b >> 4, false);
+    let (cmd, cycles) = if b & 0x04 == 0 {
+        (Command::Pop(reg), 12)
+    } else {
+        (Command::Push(reg), 16)
+    };
+
+    Ok(Instruction {
+        cmd,
+        cycles,
         alt_cycles: None,
         encoding: bytes.to_vec(),
     })
@@ -545,5 +670,53 @@ mod test {
 
         let x39 = decode(&[0x39]).unwrap();
         assert_eq!(x39.cmd, Command::AddHl(Reg::SP));
+
+        let xc8 = decode(&[0xc8]).unwrap();
+        assert_eq!(
+            xc8.cmd,
+            Command::Ret {
+                condition: Condition::Z,
+                intenable: false
+            }
+        );
+
+        let xd9 = decode(&[0xd9]).unwrap();
+        assert_eq!(
+            xd9.cmd,
+            Command::Ret {
+                condition: Condition::Always,
+                intenable: true
+            }
+        );
+
+        let xe0 = decode(&[0xe0, 0x44]).unwrap();
+        assert_eq!(
+            xe0.cmd,
+            Command::LdHalf {
+                src: HalfWordId::RegVal(HalfReg::A),
+                dst: HalfWordId::IoImmAddr(0x44),
+            }
+        );
+
+        let xf2 = decode(&[0xf2]).unwrap();
+        assert_eq!(
+            xf2.cmd,
+            Command::LdHalf {
+                src: HalfWordId::IoRegAddr(HalfReg::C),
+                dst: HalfWordId::RegVal(HalfReg::A),
+            }
+        );
+
+        let xf5 = decode(&[0xf5]).unwrap();
+        assert_eq!(xf5.cmd, Command::Push(Reg::AF));
+
+        let xd2 = decode(&[0xd2, 0xad, 0xde]).unwrap();
+        assert_eq!(
+            xd2.cmd,
+            Command::Jump {
+                target: JumpTarget::Absolute(0xdead),
+                condition: Condition::Nc
+            }
+        );
     }
 }
