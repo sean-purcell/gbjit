@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use dynasmrt::AssemblyOffset;
 use dynasmrt::ExecutableBuffer;
 
@@ -22,7 +24,7 @@ pub enum CompileError {
 
 pub fn compile(
     base_addr: u16,
-    read: impl Fn(u16) -> Option<u8>,
+    _read: impl Fn(u16) -> Option<u8>,
 ) -> Result<CodeBlock, CompileError> {
     if base_addr & ((INSTRUCTIONS_PER_BLOCK - 1) as u16) != 0 {
         return Err(CompileError::UnalignedBase);

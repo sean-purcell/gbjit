@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::convert::TryInto;
 
 use lazy_static::lazy_static;

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Reg {
     AF,
