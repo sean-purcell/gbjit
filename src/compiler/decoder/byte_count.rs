@@ -11,7 +11,7 @@ lazy_static! {
     static ref THREE_KMAP: ByteKmap =
         ByteKmap::parse(&"a'b'e'f'g'h + a'b'c'd'ef'g'h' + abfg'h' + abefg' + abef'gh' + abc'e'f'g");
     static ref TWO_KMAP: ByteKmap =
-        ByteKmap::parse(&"a'b'fgh' + abch' + a'b'df'g'h' + a'b'cf'g'h' + abgh' + abd'f'g");
+        ByteKmap::parse(&"a'b'fgh' + abcg'h' + abfh' + a'b'df'g'h' + a'b'cf'g'h' + abd'f'gh");
 }
 
 pub fn bytes_required(b: u8) -> u8 {
@@ -35,9 +35,9 @@ mod test {
     const THREES: [usize; 17] = [
         1, 17, 33, 49, 8, 194, 210, 195, 196, 212, 202, 218, 234, 250, 204, 220, 205,
     ];
-    const TWOS: [usize; 29] = [
-        6, 14, 16, 22, 24, 30, 32, 38, 40, 46, 48, 54, 56, 62, 198, 203, 206, 214, 222, 224, 226,
-        230, 232, 238, 240, 242, 246, 248, 254,
+    const TWOS: [usize; 27] = [
+        6, 14, 16, 22, 24, 30, 32, 38, 40, 46, 48, 54, 56, 62, 198, 203, 206, 214, 222, 224, 230,
+        232, 238, 240, 246, 248, 254,
     ];
 
     #[test]
