@@ -1,6 +1,6 @@
-#![allow(dead_code)]
-
 use std::convert::TryInto;
+use std::error::Error;
+use std::fmt;
 
 use lazy_static::lazy_static;
 
@@ -18,18 +18,21 @@ type Parser = fn(&[u8]) -> DecodeResult;
 
 #[derive(Debug, Copy, Clone)]
 pub enum DecodeError {
-    InvalidEncoding,
     WrongByteCount,
 }
 
-fn invalid_encoding(_bytes: &[u8]) -> Result<Instruction, DecodeError> {
-    Err(DecodeError::InvalidEncoding)
+impl fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
-pub fn bytes_required(first_byte: u8) -> Result<u8, DecodeError> {
+impl Error for DecodeError {}
+
+pub fn bytes_required(first_byte: u8) -> u8 {
     match byte_count::bytes_required(first_byte) {
-        0 => Err(DecodeError::InvalidEncoding),
-        x => Ok(x),
+        0 => 1,
+        x => x,
     }
 }
 
@@ -39,7 +42,7 @@ pub fn decode(bytes: &[u8]) -> Result<Instruction, DecodeError> {
     }
     match PARSERS[bytes[0] as usize] {
         Some(p) => p(bytes),
-        None => Err(DecodeError::InvalidEncoding),
+        None => Ok(Instruction::invalid()),
     }
 }
 

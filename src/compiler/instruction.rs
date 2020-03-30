@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Reg {
     AF,
@@ -152,6 +150,7 @@ pub enum Command {
         intenable: bool,
     },
     Rst(u8),
+    Invalid,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -163,6 +162,15 @@ pub struct Instruction {
 }
 
 impl Instruction {
+    pub fn invalid() -> Self {
+        Instruction {
+            cmd: Command::Invalid,
+            cycles: 0,
+            alt_cycles: None,
+            encoding: Vec::new(),
+        }
+    }
+
     pub fn size(&self) -> u8 {
         self.encoding.len() as u8
     }
