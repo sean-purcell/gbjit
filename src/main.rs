@@ -35,12 +35,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let insts = compiler::decode(data.as_slice());
 
-    for i in insts {
+    let mut idx = 0;
+    while idx < insts.len() {
+        let i = &insts[idx];
         if args.full {
-            println!("{:?}", i);
+            println!("{:#05x}: {:?}", idx, i);
         } else {
-            println!("{:?}", i.cmd);
+            println!("{:#05x}: {:?}", idx, i.cmd);
         }
+        idx += i.size() as usize;
     }
 
     Ok(())
