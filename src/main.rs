@@ -2,47 +2,46 @@
 #![feature(proc_macro_hygiene)]
 extern crate dynasm;
 
-use std::mem;
+use std::fs::File;
+use std::io::Read;
 
-use dynasm::dynasm;
-use dynasmrt::{x64, DynasmApi, DynasmLabelApi};
+use structopt::StructOpt;
 
 mod compiler;
 
-fn main() {
-    let mut ops = x64::Assembler::new().unwrap();
+#[derive(StructOpt)]
+#[structopt(name = "gbjit")]
+#[structopt(about = r#"
+A WIP just-in-time compiler for the GameBoy and GameBoy Colour.
 
-    let msg = "goodbye world\n";
+Currently just disassembles a given binary.
+"#)]
+struct Args {
+    /// File to disassemble.
+    binary: String,
 
-    dynasm!(ops
-        ; .arch x64
-        ; msg_label:
-        ; .bytes msg.as_bytes()
-    );
-
-    let goodbye_addr = ops.offset();
-    dynasm!(ops
-        ; mov rax, QWORD 0
-        ; mov al, BYTE 0xff as _
-        ; mov ah, BYTE 1
-        ; add ah, al
-        ; pushf
-        ; pop rdi
-        ; mov rax, QWORD printnum as _
-        ; sub rsp, BYTE 0x8
-        ; call rax
-        ; add rsp, BYTE 0x8
-        ; ret
-    );
-
-    let buf = ops.finalize().unwrap();
-    let goodbye_fun: extern "sysv64" fn() -> bool =
-        unsafe { mem::transmute(buf.ptr(goodbye_addr)) };
-
-    assert!(goodbye_fun());
+    /// Whether to print just the commands or the full instructions
+    #[structopt(short, long)]
+    full: bool,
 }
 
-extern "sysv64" fn printnum(a: u64) -> bool {
-    println!("Number: {:08x}", a);
-    true
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::from_args();
+
+    let mut file = File::open(args.binary)?;
+
+    let mut data = Vec::new();
+    file.read_to_end(&mut data)?;
+
+    let insts = compiler::decode(data.as_slice());
+
+    for i in insts {
+        if args.full {
+            println!("{:?}", i);
+        } else {
+            println!("{:?}", i.cmd);
+        }
+    }
+
+    Ok(())
 }

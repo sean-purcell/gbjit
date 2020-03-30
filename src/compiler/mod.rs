@@ -4,7 +4,9 @@ use dynasmrt::AssemblyOffset;
 use dynasmrt::ExecutableBuffer;
 
 mod decoder;
-mod instruction;
+pub mod instruction;
+
+pub use instruction::Instruction;
 
 /// The number of instructions assembled for a block
 pub const INSTRUCTIONS_PER_BLOCK: usize = 256;
@@ -31,4 +33,21 @@ pub fn compile(
     }
 
     unimplemented!()
+}
+
+pub fn decode(data: &[u8]) -> Vec<Instruction> {
+    let mut padded = data.to_vec();
+    padded.extend([0, 0].iter()); // Pad the data a bit in case the last instruction is long
+    data.iter()
+        .enumerate()
+        .map(|(i, b)| {
+            let req = decoder::bytes_required(*b);
+
+            // TODO: format! in expect is moderately expensive
+            decoder::decode(&padded[i..i + req as usize]).expect(&*format!(
+                "Decode error should be impossible, byte: {:#04x?}, length: {}",
+                b, req,
+            ))
+        })
+        .collect()
 }
