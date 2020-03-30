@@ -162,12 +162,12 @@ pub struct Instruction {
 }
 
 impl Instruction {
-    pub fn invalid() -> Self {
+    pub fn invalid(b: u8) -> Self {
         Instruction {
             cmd: Command::Invalid,
             cycles: 0,
             alt_cycles: None,
-            encoding: Vec::new(),
+            encoding: [b].to_vec(),
         }
     }
 

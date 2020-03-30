@@ -42,7 +42,7 @@ pub fn decode(bytes: &[u8]) -> Result<Instruction, DecodeError> {
     }
     match PARSERS[bytes[0] as usize] {
         Some(p) => p(bytes),
-        None => Ok(Instruction::invalid()),
+        None => Ok(Instruction::invalid(bytes[0])),
     }
 }
 
