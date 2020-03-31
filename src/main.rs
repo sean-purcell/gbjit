@@ -2,8 +2,7 @@
 #![feature(proc_macro_hygiene)]
 extern crate dynasm;
 
-use std::fs::File;
-use std::io::Read;
+use std::fs;
 
 use structopt::StructOpt;
 
@@ -28,10 +27,7 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::from_args();
 
-    let mut file = File::open(args.binary)?;
-
-    let mut data = Vec::new();
-    file.read_to_end(&mut data)?;
+    let data = fs::read(args.binary)?;
 
     let insts = compiler::decode(data.as_slice());
 

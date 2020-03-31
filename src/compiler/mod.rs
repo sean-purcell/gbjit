@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::fmt;
+
 use dynasmrt::AssemblyOffset;
 use dynasmrt::ExecutableBuffer;
 
@@ -23,6 +25,14 @@ pub enum CompileError {
     FailedRead,
     UnalignedBase,
 }
+
+impl fmt::Display for CompileError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for CompileError {}
 
 pub fn compile(
     base_addr: u16,

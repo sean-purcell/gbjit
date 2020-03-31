@@ -1,3 +1,4 @@
+#![allow(clippy::fn_to_numeric_cast)]
 #![feature(proc_macro_hygiene)]
 extern crate dynasm;
 use std::mem;
