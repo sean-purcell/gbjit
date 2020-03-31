@@ -12,7 +12,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         ; .arch x64
         ; print_flags:
         ; lahf
-        ; mov rdi, rax
+        ; mov rdi, 0
+        ; mov di, ax
+        ; shr rdi, 8
         ; mov rax, QWORD print as _
         ; call rax
         ; ret
@@ -25,7 +27,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fn_addr = ops.offset();
     dynasm!(ops
         ; mov rbx, QWORD 0
-        ; mov bl, BYTE 5
+        ; mov bl, BYTE 246u8 as i8
         ; mov bh, BYTE 9
         ; add bh, bl
         ; mov r12, rbx
