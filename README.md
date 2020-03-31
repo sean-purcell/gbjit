@@ -17,7 +17,11 @@ Compilation Model
 - SP maps to r12w
 - PC maps to r13w
 - The cycle count is stored in r14
-- The address of the memory object is stored in r15
+- The cycle count an interrupt will be generated at is in r15
+- The address of the memory object is stored in rbp
+- The address of a pointer to an interrupt flag is in r11
+
+TODO: Determine if some of those should be on the stack instead of a register
 
 ### Execution model
 Each 256-byte page of instructions is compiled separately, and has an entry

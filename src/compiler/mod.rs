@@ -1,30 +1,19 @@
 #![allow(dead_code)]
 
+use std::convert::TryInto;
 use std::fmt;
 
-use dynasmrt::AssemblyOffset;
-use dynasmrt::ExecutableBuffer;
-
+mod code_block;
+mod codegen;
 mod decoder;
 pub mod instruction;
 
+pub use code_block::CodeBlock;
+
 pub use instruction::Instruction;
 
-/// The number of instructions assembled for a block
-pub const INSTRUCTIONS_PER_BLOCK: usize = 256;
-
-pub struct CodeBlock {
-    base_addr: u16,
-    buf: ExecutableBuffer,
-    entry: AssemblyOffset,
-    offsets: [AssemblyOffset; INSTRUCTIONS_PER_BLOCK],
-}
-
 #[derive(Debug, Copy, Clone)]
-pub enum CompileError {
-    FailedRead,
-    UnalignedBase,
-}
+pub enum CompileError {}
 
 impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -36,13 +25,16 @@ impl std::error::Error for CompileError {}
 
 pub fn compile(
     base_addr: u16,
-    _read: impl Fn(u16) -> Option<u8>,
-) -> Result<CodeBlock, CompileError> {
-    if base_addr & ((INSTRUCTIONS_PER_BLOCK - 1) as u16) != 0 {
-        return Err(CompileError::UnalignedBase);
-    }
+    len: u16,
+    read: impl Fn(u16) -> Option<u8>,
+) -> Result<CodeBlock, Box<dyn std::error::Error>> {
+    let padded: Box<[u8]> = (0..len + 2).map(read).map(|x| x.unwrap_or(0)).collect();
+    let instructions: Box<[Instruction]> = padded
+        .windows(3)
+        .map(|bytes| decoder::decode_full(bytes.try_into().unwrap()))
+        .collect();
 
-    unimplemented!()
+    codegen::codegen(base_addr, &*instructions)
 }
 
 pub fn decode(data: &[u8]) -> Vec<Instruction> {

@@ -3,6 +3,7 @@ name = "gbjit"
 version = "0.1.0"
 authors = ["Sean Purcell <me@seanp.xyz>"]
 edition = "2018"
+default-run = "gbjit"
 
 [dependencies]
 dynasm = "0.6"

@@ -19,9 +19,13 @@ struct Args {
     /// File to disassemble.
     binary: String,
 
+    /// Whether to print the disassembled rom
+    #[structopt(short, long)]
+    disassemble: bool,
+
     /// Whether to print just the commands or the full instructions
     #[structopt(short, long)]
-    full: bool,
+    full_disassembly: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,18 +33,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let data = fs::read(args.binary)?;
 
-    let insts = compiler::decode(data.as_slice());
+    let block = compiler::compile(0, data.len() as u16, |x| data.get(x as usize).map(|x| *x))?;
 
+    if args.disassemble {
+        print_disassembly(&block, args.full_disassembly);
+    }
+
+    block.enter();
+
+    Ok(())
+}
+
+fn print_disassembly(block: &compiler::CodeBlock, full: bool) {
+    let insts = block.instructions();
     let mut idx = 0;
     while idx < insts.len() {
         let i = &insts[idx];
-        if args.full {
+        if full {
             println!("{:#05x}: {:?}", idx, i);
         } else {
             println!("{:#05x}: {:?}", idx, i.cmd);
         }
         idx += i.size() as usize;
     }
-
-    Ok(())
 }
