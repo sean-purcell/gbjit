@@ -8,6 +8,8 @@ in the case of self-modifying code.
 
 Compilation Model
 ---
+
+### Register mapping
 - AF maps to al,ah (this one is a bit backwards, because the LAHF puts eflags in ah)
 - BC maps to bh,bl
 - DE maps to ch,cl
@@ -16,3 +18,7 @@ Compilation Model
 - PC maps to r13w
 - The cycle count is stored in r14
 - The address of the memory object is stored in r15
+
+### Execution model
+Each 256-byte page of instructions is compiled separately, and has an entry
+and exit routine.
