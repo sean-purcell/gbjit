@@ -6,6 +6,7 @@ edition = "2018"
 default-run = "gbjit"
 
 [dependencies]
+capstone = "0.6"
 dynasm = "0.6"
 dynasmrt = "0.6"
 env_logger = "0.7"

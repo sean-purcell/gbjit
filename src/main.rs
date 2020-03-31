@@ -26,6 +26,10 @@ struct Args {
     /// Whether to print just the commands or the full instructions
     #[structopt(short, long)]
     full_disassembly: bool,
+
+    /// Whether to print the disassembly of the code block
+    #[structopt(short, long)]
+    x64_disasm: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,6 +43,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         print_disassembly(&block, args.full_disassembly);
     }
 
+    if args.x64_disasm {
+        for i in block.disassemble()? {
+            println!("{}", i);
+        }
+    }
     block.enter();
 
     Ok(())
