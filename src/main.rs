@@ -7,6 +7,7 @@ use std::fs;
 use structopt::StructOpt;
 
 mod compiler;
+mod cpu_state;
 
 #[derive(StructOpt)]
 #[structopt(name = "gbjit")]
@@ -37,18 +38,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let data = fs::read(args.binary)?;
 
-    let block = compiler::compile(0, data.len() as u16, |x| data.get(x as usize).map(|x| *x))?;
+    let block = compiler::compile(0, data.len() as u16, |x| data.get(x as usize).copied())?;
 
     if args.disassemble {
         print_disassembly(&block, args.full_disassembly);
     }
 
     if args.x64_disasm {
+        println!("Disassembly:");
         for i in block.disassemble()? {
             println!("{}", i);
         }
+        println!();
     }
-    block.enter();
+
+    let mut cpu_state = cpu_state::CpuState::new();
+
+    block.enter(&mut cpu_state);
+
+    println!("{:?}", cpu_state);
 
     Ok(())
 }
