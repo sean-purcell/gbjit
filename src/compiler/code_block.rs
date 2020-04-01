@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::ffi::c_void;
 use std::fmt;
 use std::mem;
 
@@ -8,23 +9,26 @@ use dynasmrt::{AssemblyOffset, ExecutableBuffer};
 
 use crate::cpu_state::CpuState;
 
-use super::Instruction;
+use super::external_bus::Wrapper as BusWrapper;
+use super::{ExternalBus, Instruction};
 
-pub struct CodeBlock {
+pub struct CodeBlock<T> {
     base_addr: u16,
     buf: ExecutableBuffer,
-    entry: extern "sysv64" fn(*mut CpuState, u64),
+    entry: extern "sysv64" fn(*mut CpuState, target_pc: u64, param: *mut c_void),
     offsets: Vec<AssemblyOffset>,
     instructions: Vec<Instruction>,
+    bus: ExternalBus<T>,
 }
 
-impl CodeBlock {
+impl<T> CodeBlock<T> {
     pub(super) fn new(
         base_addr: u16,
         buf: ExecutableBuffer,
         entry: AssemblyOffset,
         offsets: Vec<AssemblyOffset>,
         instructions: Vec<Instruction>,
+        bus: ExternalBus<T>,
     ) -> Self {
         let entry = unsafe { mem::transmute(buf.ptr(entry)) };
         CodeBlock {
@@ -33,6 +37,7 @@ impl CodeBlock {
             entry,
             offsets,
             instructions,
+            bus,
         }
     }
 
@@ -41,7 +46,7 @@ impl CodeBlock {
     }
 
     // TODO: Make cpu state and memory a parameter
-    pub fn enter(&self, cpu_state: &mut CpuState) {
+    pub fn enter(&self, cpu_state: &mut CpuState, param: &mut T) {
         let gb_pc = cpu_state.pc;
         let len = self.offsets.len();
         assert!(
@@ -52,7 +57,11 @@ impl CodeBlock {
             len
         );
         let target_pc = self.buf.ptr(self.offsets[gb_pc as usize]);
-        (self.entry)(cpu_state as *mut CpuState, target_pc as u64)
+
+        let mut wrapper = BusWrapper::new(&self.bus, param);
+        let void_wrapper = unsafe { mem::transmute(&mut wrapper as *mut BusWrapper<T>) };
+
+        (self.entry)(cpu_state as *mut CpuState, target_pc as u64, void_wrapper)
     }
 
     pub fn disassemble(&self) -> Result<Vec<String>, CsError> {

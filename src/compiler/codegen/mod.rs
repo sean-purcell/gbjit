@@ -1,33 +1,34 @@
 use dynasm::dynasm;
-use dynasmrt::{x64, AssemblyOffset, DynasmApi, DynasmLabelApi};
+use dynasmrt::{x64, AssemblyOffset, DynasmApi, DynasmLabelApi, ExecutableBuffer};
 
+use super::external_bus::TypeErased as ExternalBus;
 use super::instruction::*;
-
-use super::CodeBlock;
+use super::CompileError;
 
 pub fn codegen(
     base_addr: u16,
     insts: &[Instruction],
-    // TODO: add parameter to pass in memory and int enable/disable functions
-) -> Result<CodeBlock, Box<dyn std::error::Error>> {
+    _bus: &ExternalBus,
+) -> Result<(ExecutableBuffer, AssemblyOffset, Vec<AssemblyOffset>), CompileError> {
     let mut ops = x64::Assembler::new()?;
 
     let entry = generate_boilerplate(&mut ops);
 
-    let offset = assemble_instruction(&mut ops, &insts[0], 0, 0, 0);
+    let offset = assemble_instruction(
+        &mut ops,
+        &insts[0],
+        base_addr,
+        base_addr,
+        insts.len() as u16,
+    );
     let offsets = vec![offset];
 
-    ops.commit()?;
+    ops.commit()
+        .expect("No assembly errors should have occurred");
 
     let buf = ops.finalize().expect("No executor instances created");
 
-    Ok(CodeBlock::new(
-        base_addr,
-        buf,
-        entry,
-        offsets,
-        insts.to_vec(),
-    ))
+    Ok((buf, entry, offsets))
 }
 
 fn generate_boilerplate(ops: &mut x64::Assembler) -> AssemblyOffset {
@@ -39,7 +40,7 @@ fn generate_boilerplate(ops: &mut x64::Assembler) -> AssemblyOffset {
         ; mov [rsp - 0x10], r13
         ; mov [rsp - 0x18], r14
         ; mov [rsp - 0x20], r15
-        ; sub rsp, 0x28
+        ; sub rsp, 0x30
         ; mov r14, [rdi + 0x00] // cycles
         ; mov r12w, [rdi + 0x08] // sp
         ; mov r13w, [rdi + 0x0a] // pc
@@ -48,6 +49,7 @@ fn generate_boilerplate(ops: &mut x64::Assembler) -> AssemblyOffset {
         ; mov cx, [rdi + 0x10] // de
         ; mov dx, [rdi + 0x12] // hl
         ; mov [rsp + 0x00], rdi
+        ; mov [rsp + 0x08], rdx
         ; jmp rsi
         ; -> exit:
         ; mov rdi, [rsp + 0x00]
@@ -58,7 +60,7 @@ fn generate_boilerplate(ops: &mut x64::Assembler) -> AssemblyOffset {
         ; mov [rdi + 0x0e], bx // bc
         ; mov [rdi + 0x10], cx // de
         ; mov [rdi + 0x12], dx // hl
-        ; add rsp, 0x28
+        ; add rsp, 0x30
         ; mov r12, [rsp - 0x08]
         ; mov r13, [rsp - 0x10]
         ; mov r14, [rsp - 0x18]
@@ -68,6 +70,8 @@ fn generate_boilerplate(ops: &mut x64::Assembler) -> AssemblyOffset {
     );
     offset
 }
+
+type Generator = fn(&mut x64::Assembler, &Instruction, pc: u16, base_addr: u16, len: u16);
 
 fn assemble_instruction(
     ops: &mut x64::Assembler,
