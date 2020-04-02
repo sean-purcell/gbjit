@@ -20,18 +20,20 @@ pub fn codegen(
         .map(|_| ops.new_dynamic_label())
         .collect();
 
-    let offset = assemble_instruction(
-        &mut ops,
-        &insts[0],
-        labels.as_slice(),
-        base_addr,
-        base_addr,
-        bus,
-    );
+    let offsets = (base_addr..base_addr + len)
+        .map(|pc| {
+            assemble_instruction(
+                &mut ops,
+                &insts[pc as usize],
+                labels.as_slice(),
+                pc,
+                base_addr,
+                bus,
+            )
+        })
+        .collect();
 
     generate_overrun(&mut ops);
-
-    let offsets = vec![offset];
 
     ops.commit()
         .expect("No assembly errors should have occurred");
@@ -122,9 +124,23 @@ fn assemble_instruction(
     let generate_epilogue = generator(ops, inst, labels, pc, base_addr, bus);
 
     if generate_epilogue {
+        let target_pc = pc + inst.size();
         dynasm!(ops
+            ; mov r13w, WORD target_pc as _
             ; add r14, DWORD inst.cycles as _
         );
+        if inst.size() != 1 {
+            let target_idx = pc + inst.size() - base_addr;
+            if target_idx >= labels.len() as u16 {
+                dynasm!(ops
+                    ; jmp ->exit
+                );
+            } else {
+                dynasm!(ops
+                    ; jmp =>labels[target_idx as usize]
+                );
+            }
+        }
     }
 
     offset

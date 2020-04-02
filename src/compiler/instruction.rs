@@ -171,7 +171,7 @@ impl Instruction {
         }
     }
 
-    pub fn size(&self) -> u8 {
-        self.encoding.len() as u8
+    pub fn size(&self) -> u16 {
+        self.encoding.len() as u16
     }
 }
