@@ -92,15 +92,15 @@ impl<T> CodeBlock<T> {
         }
 
         impl<'a> Entry<'a> {
-            fn host_pc(&self) -> u64 {
+            fn sort_idx(&self) -> u64 {
                 use Entry::*;
                 match self {
                     SrcInstruction {
                         src_pc: _,
                         host_pc,
                         inst: _,
-                    } => *host_pc,
-                    HostInstruction { host_pc, repr: _ } => *host_pc,
+                    } => (2 * *host_pc) + 0,
+                    HostInstruction { host_pc, repr: _ } => (2 * *host_pc) + 1,
                 }
             }
         }
@@ -121,13 +121,13 @@ impl<T> CodeBlock<T> {
 
         impl<'a> PartialEq for Entry<'a> {
             fn eq(&self, other: &Entry<'a>) -> bool {
-                self.host_pc() == other.host_pc()
+                self.sort_idx() == other.sort_idx()
             }
         }
 
         impl<'a> PartialOrd for Entry<'a> {
             fn partial_cmp(&self, other: &Entry<'a>) -> Option<Ordering> {
-                Some(self.host_pc().cmp(&other.host_pc()))
+                Some(self.sort_idx().cmp(&other.sort_idx()))
             }
         }
 
