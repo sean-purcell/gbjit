@@ -1,17 +1,25 @@
 use dynasm::dynasm;
-use dynasmrt::{x64, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer};
+use dynasmrt::x64::Assembler;
+use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer};
 use log::*;
 
 use super::external_bus::TypeErased as ExternalBus;
 use super::instruction::*;
 use super::CompileError;
 
+#[macro_use]
+mod util;
+
+mod ldhalf;
+
+use util::{pop_state, push_state};
+
 pub fn codegen(
     base_addr: u16,
     insts: &[Instruction],
     bus: &ExternalBus,
 ) -> Result<(ExecutableBuffer, AssemblyOffset, Vec<AssemblyOffset>), CompileError> {
-    let mut ops = x64::Assembler::new()?;
+    let mut ops = Assembler::new()?;
 
     let entry = generate_boilerplate(&mut ops);
 
@@ -43,7 +51,7 @@ pub fn codegen(
     Ok((buf, entry, offsets))
 }
 
-fn generate_boilerplate(ops: &mut x64::Assembler) -> AssemblyOffset {
+fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
     // Entry has type: fn (cpu_state: *mut CpuState, target_pc: u64, parameter: *mut c_void)
     let offset = ops.offset();
     dynasm!(ops
@@ -84,7 +92,7 @@ fn generate_boilerplate(ops: &mut x64::Assembler) -> AssemblyOffset {
     offset
 }
 
-fn generate_overrun(ops: &mut x64::Assembler) {
+fn generate_overrun(ops: &mut Assembler) {
     dynasm!(ops
         ; jmp ->exit
     )
@@ -96,7 +104,7 @@ fn label(pc: u16) -> String {
 
 type GenerateEpilogue = bool;
 type Generator = fn(
-    &mut x64::Assembler,
+    &mut Assembler,
     &Instruction,
     labels: &[DynamicLabel],
     pc: u16,
@@ -105,7 +113,7 @@ type Generator = fn(
 ) -> GenerateEpilogue;
 
 fn assemble_instruction(
-    ops: &mut x64::Assembler,
+    ops: &mut Assembler,
     inst: &Instruction,
     labels: &[DynamicLabel],
     pc: u16,
@@ -146,28 +154,8 @@ fn assemble_instruction(
     offset
 }
 
-fn push_state(ops: &mut x64::Assembler) {
-    // TODO: add r11 when we start using that
-    dynasm!(ops
-        ; push rax
-        ; push rcx
-        ; push rdx
-        ; sub rsp, 8
-    );
-}
-
-fn pop_state(ops: &mut x64::Assembler) {
-    // TODO: add r11 when we start using that
-    dynasm!(ops
-        ; add rsp, 8
-        ; pop rax
-        ; pop rcx
-        ; pop rdx
-    );
-}
-
 fn generate_invalid(
-    ops: &mut x64::Assembler,
+    ops: &mut Assembler,
     inst: &Instruction,
     _labels: &[DynamicLabel],
     pc: u16,
