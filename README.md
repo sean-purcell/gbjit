@@ -10,7 +10,9 @@ Compilation Model
 ---
 
 ### Register mapping
-- AF maps to al,ah (this one is a bit backwards, because the LAHF puts eflags in ah)
+- ah is a staging area, as is [rsp]
+- The LAHF representation of F is at [rsp + 0x01]
+- A maps to al (this one is a bit backwards, because the LAHF puts eflags in ah)
 - BC maps to bh,bl
 - DE maps to ch,cl
 - HL maps to dh,dl

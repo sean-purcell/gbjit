@@ -60,7 +60,7 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
         ; mov [rsp - 0x10], r13
         ; mov [rsp - 0x18], r14
         ; mov [rsp - 0x20], r15
-        ; sub rsp, 0x30
+        ; sub rsp, 0x40
         ; mov rbp, rdx
         ; mov r14, [rdi + 0x00] // cycles
         ; mov r12w, [rdi + 0x08] // sp
@@ -69,11 +69,11 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
         ; mov bx, [rdi + 0x0e] // bc
         ; mov cx, [rdi + 0x10] // de
         ; mov dx, [rdi + 0x12] // hl
-        ; mov [rsp + 0x00], rdi
-        ; mov [rsp + 0x08], rdx
+        ; mov [rsp + 0x08], rdi
+        ; mov [rsp + 0x10], rdx
         ; jmp rsi
         ; -> exit:
-        ; mov rdi, [rsp + 0x00]
+        ; mov rdi, [rsp + 0x08]
         ; mov [rdi + 0x00], r14 // cycles
         ; mov [rdi + 0x08], r12w // sp
         ; mov [rdi + 0x0a], r13w // pc
@@ -81,7 +81,7 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
         ; mov [rdi + 0x0e], bx // bc
         ; mov [rdi + 0x10], cx // de
         ; mov [rdi + 0x12], dx // hl
-        ; add rsp, 0x30
+        ; add rsp, 0x40
         ; mov r12, [rsp - 0x08]
         ; mov r13, [rsp - 0x10]
         ; mov r14, [rsp - 0x18]

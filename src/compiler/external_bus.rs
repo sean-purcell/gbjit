@@ -14,9 +14,9 @@ pub struct Generic<T> {
 /// TypeErased is the type erased version of Generic that will be passed to the assembly.
 #[derive(Copy, Clone)]
 pub struct TypeErased {
-    read: extern "sysv64" fn(*mut c_void, addr: u16) -> (bool, u8),
-    write: extern "sysv64" fn(*mut c_void, addr: u16, val: u8) -> bool,
-    interrupts: extern "sysv64" fn(*mut c_void, enabled: bool) -> bool,
+    pub read: extern "sysv64" fn(*mut c_void, addr: u16) -> (bool, u8),
+    pub write: extern "sysv64" fn(*mut c_void, addr: u16, val: u8) -> bool,
+    pub interrupts: extern "sysv64" fn(*mut c_void, enabled: bool) -> bool,
 }
 
 pub struct Wrapper<'a, T> {
