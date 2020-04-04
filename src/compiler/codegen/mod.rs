@@ -10,7 +10,10 @@ use super::CompileError;
 #[macro_use]
 mod util;
 
+mod ldaddrinc;
+mod ldfullimm;
 mod ldhalf;
+mod storesp;
 
 use util::{pop_state, push_state};
 
@@ -129,6 +132,9 @@ fn assemble_instruction(
         use Command::*;
         match inst.cmd {
             LdHalf { src: _, dst: _ } => ldhalf::generate,
+            LdAddrInc { inc: _, load: _ } => ldaddrinc::generate,
+            LdFullImm { dst: _, val: _ } => ldfullimm::generate,
+            StoreSp { addr: _ } => storesp::generate,
             _ => generate_invalid,
         }
     };

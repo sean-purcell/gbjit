@@ -16,12 +16,12 @@ pub fn generate(
         }
         Addr(a) => {
             dynasm!(ops
-                ; mov si, WORD a as _
+                ; mov di, WORD a as _
             );
         }
         IoImmAddr(a) => {
             dynasm!(ops
-                ; mov si, WORD (0xff00 + a as u16) as _
+                ; mov di, WORD (0xff00 + a as u16) as _
             );
         }
         IoRegAddr(r) => {
@@ -30,7 +30,7 @@ pub fn generate(
                 ; mov di, WORD 0xff00 as _
                 ; mov [rsp], ah
                 ; mov BYTE [rsp + 0x01], 0
-                ; add si, [rsp]
+                ; add di, [rsp]
             );
         }
         _ => panic!("Non-address halfword id: {:?}", id),

@@ -36,7 +36,7 @@ pub fn pop_state(ops: &mut Assembler) {
 pub fn call_read(ops: &mut Assembler, bus: &ExternalBus) {
     dynasm!(ops
         ;; push_state(ops)
-        ; mov rdi, rbp
+        ; mov rsi, rbp
         ; mov rax, QWORD bus.read as _
         ; call rax
         ; mov ah, al
@@ -47,7 +47,7 @@ pub fn call_read(ops: &mut Assembler, bus: &ExternalBus) {
 pub fn call_write(ops: &mut Assembler, bus: &ExternalBus) {
     dynasm!(ops
         ;; push_state(ops)
-        ; mov rdi, rbp
+        ; mov rdx, rbp
         ; mov rax, QWORD bus.write as _
         ; call rax
         ;; pop_state(ops)
@@ -102,7 +102,7 @@ pub fn load_reg(ops: &mut Assembler, r: Reg) {
     macro_rules! ld {
         ($ops:expr, $r:tt) => {
             dynasm!($ops
-                ; mov si, $r
+                ; mov di, $r
             )
         };
     }
@@ -121,7 +121,7 @@ pub fn store_reg(ops: &mut Assembler, r: Reg) {
     macro_rules! st {
         ($ops:expr, $r:tt) => {
             dynasm!($ops
-                ; mov $r, si
+                ; mov $r, di
             )
         };
     }

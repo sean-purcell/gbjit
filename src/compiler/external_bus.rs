@@ -14,9 +14,9 @@ pub struct Generic<T> {
 /// TypeErased is the type erased version of Generic that will be passed to the assembly.
 #[derive(Copy, Clone)]
 pub struct TypeErased {
-    pub read: extern "sysv64" fn(*mut c_void, addr: u16) -> (bool, u8),
-    pub write: extern "sysv64" fn(*mut c_void, addr: u16, val: u8) -> bool,
-    pub interrupts: extern "sysv64" fn(*mut c_void, enabled: bool) -> bool,
+    pub read: extern "sysv64" fn(addr: u16, *mut c_void) -> (bool, u8),
+    pub write: extern "sysv64" fn(addr: u16, val: u8, *mut c_void) -> bool,
+    pub interrupts: extern "sysv64" fn(enabled: bool, *mut c_void) -> bool,
 }
 
 pub struct Wrapper<'a, T> {
@@ -47,17 +47,17 @@ impl<'a, T> Wrapper<'a, T> {
     }
 }
 
-extern "sysv64" fn read_wrapper<'a, T: 'a>(param: *mut c_void, addr: u16) -> (bool, u8) {
+extern "sysv64" fn read_wrapper<'a, T: 'a>(addr: u16, param: *mut c_void) -> (bool, u8) {
     let wrapper = unsafe { Wrapper::<'a, T>::from_raw(param) };
     (wrapper.generic.read)(wrapper.parameter, addr)
 }
 
-extern "sysv64" fn write_wrapper<'a, T: 'a>(param: *mut c_void, addr: u16, val: u8) -> bool {
+extern "sysv64" fn write_wrapper<'a, T: 'a>(addr: u16, val: u8, param: *mut c_void) -> bool {
     let wrapper = unsafe { Wrapper::<'a, T>::from_raw(param) };
     (wrapper.generic.write)(wrapper.parameter, addr, val)
 }
 
-extern "sysv64" fn interrupts_wrapper<'a, T: 'a>(param: *mut c_void, enabled: bool) -> bool {
+extern "sysv64" fn interrupts_wrapper<'a, T: 'a>(enabled: bool, param: *mut c_void) -> bool {
     let wrapper = unsafe { Wrapper::<'a, T>::from_raw(param) };
     (wrapper.generic.interrupts)(wrapper.parameter, enabled)
 }
