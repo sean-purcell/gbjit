@@ -45,7 +45,6 @@ impl<T> CodeBlock<T> {
         self.instructions.as_slice()
     }
 
-    // TODO: Make cpu state and memory a parameter
     pub fn enter(&self, cpu_state: &mut CpuState, param: &mut T) {
         let gb_pc = cpu_state.pc;
         let len = self.offsets.len();

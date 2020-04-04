@@ -18,24 +18,25 @@ macro_rules! parse_cmd {
 pub fn push_state(ops: &mut Assembler) {
     // TODO: add r11 when we start using that
     dynasm!(ops
-        ; mov [rsp + 0x06], al
-        ; mov [rsp + 0x02], cx
-        ; mov [rsp + 0x04], dx
+        ; mov [rsp + 0x03], al
+        ; mov [rsp + 0x04], cx
+        ; mov [rsp + 0x06], dx
     );
 }
 
 pub fn pop_state(ops: &mut Assembler) {
     // TODO: add r11 when we start using that
     dynasm!(ops
-        ; mov al, [rsp + 0x06]
-        ; mov cx, [rsp + 0x02]
-        ; mov dx, [rsp + 0x04]
+        ; mov al, [rsp + 0x03]
+        ; mov cx, [rsp + 0x04]
+        ; mov dx, [rsp + 0x06]
     );
 }
 
 pub fn call_read(ops: &mut Assembler, bus: &ExternalBus) {
     dynasm!(ops
         ;; push_state(ops)
+        ; mov rdi, rbp
         ; mov rax, QWORD bus.read as _
         ; call rax
         ; mov ah, al
@@ -46,6 +47,7 @@ pub fn call_read(ops: &mut Assembler, bus: &ExternalBus) {
 pub fn call_write(ops: &mut Assembler, bus: &ExternalBus) {
     dynasm!(ops
         ;; push_state(ops)
+        ; mov rdi, rbp
         ; mov rax, QWORD bus.write as _
         ; call rax
         ;; pop_state(ops)
@@ -100,7 +102,7 @@ pub fn load_reg(ops: &mut Assembler, r: Reg) {
     macro_rules! ld {
         ($ops:expr, $r:tt) => {
             dynasm!($ops
-                ; mov di, $r
+                ; mov si, $r
             )
         };
     }
@@ -119,7 +121,7 @@ pub fn store_reg(ops: &mut Assembler, r: Reg) {
     macro_rules! st {
         ($ops:expr, $r:tt) => {
             dynasm!($ops
-                ; mov $r, di
+                ; mov $r, si
             )
         };
     }

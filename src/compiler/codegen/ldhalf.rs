@@ -13,67 +13,53 @@ pub fn generate(
     let load_address_param = |ops: &mut Assembler, id: HalfWordId| match id {
         RegAddr(r) => {
             load_reg(ops, r);
-            true
         }
         Addr(a) => {
             dynasm!(ops
-                ; mov di, WORD a as _
+                ; mov si, WORD a as _
             );
-            true
         }
         IoImmAddr(a) => {
             dynasm!(ops
-                ; mov di, WORD (0xff00 + a as u16) as _
+                ; mov si, WORD (0xff00 + a as u16) as _
             );
-            true
         }
         IoRegAddr(r) => {
             load_halfreg(ops, r);
             dynasm!(ops
                 ; mov di, WORD 0xff00 as _
                 ; mov [rsp], ah
-                ; add di, [rsp]
+                ; mov BYTE [rsp + 0x01], 0
+                ; add si, [rsp]
             );
-            true
         }
         _ => panic!("Non-address halfword id: {:?}", id),
     };
 
     use HalfWordId::*;
-    let gen_load = match src {
-        RegVal(r) => {
-            load_halfreg(ops, r);
-            false
+    match src {
+        RegVal(r) => load_halfreg(ops, r),
+        Imm(v) => dynasm!(ops
+            ; mov ah, BYTE v as _
+        ),
+        c => {
+            load_address_param(ops, c);
+            call_read(ops, bus);
         }
-        Imm(v) => {
-            dynasm!(ops
-                ; mov ah, BYTE v as _
-            );
-            false
-        }
-        c => load_address_param(ops, c),
     };
 
-    if gen_load {
-        call_read(ops, bus);
-    }
-
-    let gen_store = match dst {
-        RegVal(r) => {
-            store_halfreg(ops, r);
-            false
-        }
+    match dst {
+        RegVal(r) => store_halfreg(ops, r),
         Imm(_) => panic!("Storing to immediate is meaningless"),
-        c => load_address_param(ops, c),
+        c => {
+            dynasm!(ops
+                ; mov [rsp], ah
+                ; mov sil, [rsp]
+            );
+            load_address_param(ops, c);
+            call_write(ops, bus);
+        }
     };
-
-    if gen_store {
-        dynasm!(ops
-            ; mov [rsp], ah
-            ; mov sil, [rsp]
-        );
-        call_write(ops, bus);
-    }
 
     true
 }

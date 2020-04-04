@@ -125,8 +125,12 @@ fn assemble_instruction(
         ; => labels[(pc-base_addr) as usize]
     );
 
-    let generator = match inst.cmd {
-        _ => generate_invalid,
+    let generator = {
+        use Command::*;
+        match inst.cmd {
+            LdHalf { src: _, dst: _ } => ldhalf::generate,
+            _ => generate_invalid,
+        }
     };
 
     let generate_epilogue = generator(ops, inst, labels, pc, base_addr, bus);
