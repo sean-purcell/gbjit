@@ -99,7 +99,7 @@ impl<T> CodeBlock<T> {
                         src_pc: _,
                         host_pc,
                         inst: _,
-                    } => (2 * *host_pc) + 0,
+                    } => 2 * *host_pc,
                     HostInstruction { host_pc, repr: _ } => (2 * *host_pc) + 1,
                 }
             }

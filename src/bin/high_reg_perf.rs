@@ -21,7 +21,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let xchg: extern "sysv64" fn(u64) = unsafe { mem::transmute(buf.ptr(xchg_offset)) };
     let stack: extern "sysv64" fn(u64) = unsafe { mem::transmute(buf.ptr(stack_offset)) };
 
-    let iter = 100000000;
+    let iter = 100_000_000;
     println!("Xchg: {:#?}", time_execution(|| xchg(iter)));
     println!("Stack: {:#?}", time_execution(|| stack(iter)));
 
