@@ -2,8 +2,9 @@ pub use dynasm::dynasm;
 pub use dynasmrt::x64::Assembler;
 pub use dynasmrt::{DynamicLabel, DynasmApi, DynasmLabelApi};
 
+pub(super) use super::instruction::*;
 pub(super) use super::Command::*;
-pub(super) use super::{ExternalBus, GenerateEpilogue, HalfReg, HalfWordId, Instruction, Reg};
+pub(super) use super::{ExternalBus, GenerateEpilogue};
 
 macro_rules! parse_cmd {
     ($i:expr, $p:pat => $e:expr) => {

@@ -4,12 +4,13 @@ use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, Executab
 use log::*;
 
 use super::external_bus::TypeErased as ExternalBus;
-use super::instruction::*;
+use super::instruction::{self, *};
 use super::CompileError;
 
 #[macro_use]
 mod util;
 
+mod aluhalf;
 mod ldaddrinc;
 mod ldfullimm;
 mod ldhalf;
@@ -139,6 +140,7 @@ fn assemble_instruction(
             StoreSp { addr: _ } => storesp::generate,
             Push(_) => push::generate,
             Pop(_) => pop::generate,
+            AluHalf { cmd: _, op: _ } => aluhalf::generate,
             _ => generate_invalid,
         }
     };
