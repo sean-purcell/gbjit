@@ -13,6 +13,8 @@ mod util;
 mod ldaddrinc;
 mod ldfullimm;
 mod ldhalf;
+mod pop;
+mod push;
 mod storesp;
 
 use util::{pop_state, push_state};
@@ -135,6 +137,8 @@ fn assemble_instruction(
             LdAddrInc { inc: _, load: _ } => ldaddrinc::generate,
             LdFullImm { dst: _, val: _ } => ldfullimm::generate,
             StoreSp { addr: _ } => storesp::generate,
+            Push(_) => push::generate,
+            Pop(_) => pop::generate,
             _ => generate_invalid,
         }
     };
