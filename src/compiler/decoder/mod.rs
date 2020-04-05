@@ -216,7 +216,15 @@ fn parse_cb(bytes: &[u8]) -> DecodeResult {
 
     let op = get_location(b);
 
-    let cycles = if op == Location::Mem { 16 } else { 8 };
+    let cycles = if op == Location::Mem {
+        if let Bit(_) = cmd {
+            12
+        } else {
+            16
+        }
+    } else {
+        8
+    };
 
     Ok(Instruction {
         cmd: Command::BitHalf { cmd, op },
