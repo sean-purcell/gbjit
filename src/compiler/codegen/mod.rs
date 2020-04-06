@@ -10,11 +10,18 @@ use super::CompileError;
 #[macro_use]
 mod util;
 
+mod addhl;
+mod addsp;
 mod aluhalf;
+mod cpl;
 mod daa;
+mod hlspoffset;
+mod incdecfull;
+mod incdechalf;
 mod ldaddrinc;
 mod ldfullimm;
 mod ldhalf;
+mod ldsphl;
 mod pop;
 mod push;
 mod storesp;
@@ -145,6 +152,13 @@ fn assemble_instruction(
             Pop(_) => pop::generate,
             AluHalf { cmd: _, op: _ } => aluhalf::generate,
             Daa => daa::generate,
+            Cpl => cpl::generate,
+            AddHl(_) => addhl::generate,
+            IncDecHalf { loc: _, inc: _ } => incdechalf::generate,
+            IncDecFull { reg: _, inc: _ } => incdecfull::generate,
+            AddSp(_) => addsp::generate,
+            HlSpOffset(_) => hlspoffset::generate,
+            LdSpHl => ldsphl::generate,
             _ => generate_invalid,
         }
     };

@@ -99,6 +99,34 @@ pub fn store_halfreg(ops: &mut Assembler, r: HalfReg) {
     }
 }
 
+pub fn load_location(ops: &mut Assembler, bus: &ExternalBus, loc: Location) {
+    use Location::*;
+    match loc {
+        Reg(r) => load_halfreg(ops, r),
+        Mem => {
+            dynasm!(ops
+                ; mov di, dx
+                ;; call_read(ops, bus)
+            );
+        }
+    }
+}
+
+pub fn store_location(ops: &mut Assembler, bus: &ExternalBus, loc: Location) {
+    use Location::*;
+    match loc {
+        Reg(r) => store_halfreg(ops, r),
+        Mem => {
+            dynasm!(ops
+                ; mov di, dx
+                ; mov [rsp], ah
+                ; mov sil, [rsp]
+                ;; call_write(ops, bus)
+            );
+        }
+    }
+}
+
 pub fn load_reg(ops: &mut Assembler, r: Reg) {
     macro_rules! ld {
         ($ops:expr, $r:tt) => {

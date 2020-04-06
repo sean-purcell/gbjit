@@ -32,13 +32,7 @@ pub fn generate(
     let (cmd, op) = parse_cmd!(inst, AluHalf { cmd, op } => (cmd, op));
 
     match op {
-        AluOperand::Loc(Location::Reg(r)) => load_halfreg(ops, r),
-        AluOperand::Loc(Location::Mem) => {
-            dynasm!(ops
-                ; mov di, dx
-                ;; call_read(ops, bus)
-            );
-        }
+        AluOperand::Loc(loc) => load_location(ops, bus, loc),
         AluOperand::Imm(v) => {
             dynasm!(ops
                 ; mov ah, BYTE v as _
