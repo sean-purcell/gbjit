@@ -144,6 +144,7 @@ fn assemble_instruction(
             Push(_) => push::generate,
             Pop(_) => pop::generate,
             AluHalf { cmd: _, op: _ } => aluhalf::generate,
+            Daa => daa::generate,
             _ => generate_invalid,
         }
     };
