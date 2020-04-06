@@ -136,3 +136,32 @@ pub fn store_reg(ops: &mut Assembler, r: Reg) {
         SP => st!(ops, r12w),
     }
 }
+
+/// Generate a correct AF register at [rsp]
+pub fn materialize_af(ops: &mut Assembler) {
+    dynasm!(ops
+        ; mov [rsp + 0x01], al
+        ; mov ah, [rsp + 0x02]
+        ; mov al, ah
+        ; and al, BYTE 0x70 as _
+        ; shl al, 1
+        ; and ah, BYTE 1 as _
+        ; shl ah, 4
+        ; or al, ah
+        ; mov [rsp + 0x00], al
+    );
+}
+
+/// Generate the LAHF format and the al register from AF at [rsp]
+pub fn deconstruct_af(ops: &mut Assembler) {
+    dynasm!(ops
+        ; mov ah, [rsp + 0x00]
+        ; mov al, ah
+        ; shr al, 1
+        ; shr ah, 4
+        ; and ah, BYTE 1 as _
+        ; or al, ah
+        ; mov [rsp + 0x02], al
+        ; mov al, [rsp + 0x01]
+    );
+}

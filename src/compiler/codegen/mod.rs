@@ -11,6 +11,7 @@ use super::CompileError;
 mod util;
 
 mod aluhalf;
+mod daa;
 mod ldaddrinc;
 mod ldfullimm;
 mod ldhalf;
@@ -72,6 +73,7 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
         ; mov r12w, [rdi + 0x08] // sp
         ; mov r13w, [rdi + 0x0a] // pc
         ; mov ax, [rdi + 0x0c] // af
+        ; mov [rsp + 0x02], ah // f
         ; mov bx, [rdi + 0x0e] // bc
         ; mov cx, [rdi + 0x10] // de
         ; mov dx, [rdi + 0x12] // hl
@@ -83,6 +85,7 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
         ; mov [rdi + 0x00], r14 // cycles
         ; mov [rdi + 0x08], r12w // sp
         ; mov [rdi + 0x0a], r13w // pc
+        ; mov ah, [rsp + 0x02] // f
         ; mov [rdi + 0x0c], ax // af
         ; mov [rdi + 0x0e], bx // bc
         ; mov [rdi + 0x10], cx // de

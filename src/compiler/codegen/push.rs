@@ -11,18 +11,7 @@ pub fn generate(
     let reg = parse_cmd!(inst, Push(reg) => reg);
 
     if reg == Reg::AF {
-        // Materialize the flags register
-        dynasm!(ops
-            ; mov [rsp + 0x01], al
-            ; mov ah, [rsp + 0x02]
-            ; mov al, ah
-            ; and al, BYTE 0x70 as _
-            ; shl al, 1
-            ; and ah, BYTE 1 as _
-            ; shl ah, 4
-            ; or al, ah
-            ; mov [rsp + 0x00], al
-        );
+        materialize_af(ops);
     } else {
         dynasm!(ops
             ;; load_reg(ops, reg)

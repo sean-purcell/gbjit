@@ -21,17 +21,7 @@ pub fn generate(
         ; add r12w, 1
     );
     if reg == Reg::AF {
-        // Construct the LAHF form from the flags register
-        dynasm!(ops
-            ; mov ah, [rsp + 0x00]
-            ; mov al, ah
-            ; shr al, 1
-            ; shr ah, 4
-            ; and ah, BYTE 1 as _
-            ; or al, ah
-            ; mov [rsp + 0x02], al
-            ; mov al, [rsp + 0x01]
-        );
+        deconstruct_af(ops);
     } else {
         dynasm!(ops
             ; mov di, [rsp]
