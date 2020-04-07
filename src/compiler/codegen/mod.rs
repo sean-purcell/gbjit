@@ -14,12 +14,14 @@ mod addhl;
 mod addsp;
 mod aluhalf;
 mod bithalf;
+mod call;
 mod control;
 mod cpl;
 mod daa;
 mod hlspoffset;
 mod incdecfull;
 mod incdechalf;
+mod jump;
 mod ldaddrinc;
 mod ldfullimm;
 mod ldhalf;
@@ -132,7 +134,7 @@ type Generator = fn(
 #[derive(Debug, Clone, Copy)]
 enum JumpDescription {
     Static(u16),
-    Dynamic,
+    Dynamic, // Target should be put in di
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -140,7 +142,7 @@ enum EpilogueDescription {
     Default,
     Jump {
         target: JumpDescription,
-        untaken: Option<DynamicLabel>,
+        skip_label: Option<DynamicLabel>,
     },
 }
 
@@ -183,6 +185,14 @@ fn assemble_instruction(
             LdSpHl => ldsphl::generate,
             BitHalf { cmd: _, op: _ } => bithalf::generate,
             Control(_) => control::generate,
+            Jump {
+                target: _,
+                condition: _,
+            } => jump::generate,
+            Call {
+                target: _,
+                condition: _,
+            } => call::generate,
             _ => generate_invalid,
         }
     };
@@ -211,7 +221,7 @@ fn generate_epilogue(
             pc,
             base_addr,
         ),
-        EpilogueDescription::Jump { target, untaken } => {
+        EpilogueDescription::Jump { target, skip_label } => {
             match target {
                 JumpDescription::Static(target_pc) => generate_static_jump_epilogue(
                     ops,
@@ -225,7 +235,7 @@ fn generate_epilogue(
                     generate_dynamic_jump_epilogue(ops, inst.cycles, labels, pc, base_addr)
                 }
             }
-            if let Some(label) = untaken {
+            if let Some(label) = skip_label {
                 dynasm!(ops
                     ; => *label
                 );

@@ -4,7 +4,7 @@ pub use dynasmrt::{DynamicLabel, DynasmApi, DynasmLabelApi};
 
 pub(super) use super::instruction::*;
 pub(super) use super::Command::*;
-pub(super) use super::{EpilogueDescription, ExternalBus};
+pub(super) use super::{EpilogueDescription, ExternalBus, JumpDescription};
 
 macro_rules! parse_cmd {
     ($i:expr, $p:pat => $e:expr) => {
