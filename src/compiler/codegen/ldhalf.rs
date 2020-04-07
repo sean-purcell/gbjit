@@ -1,13 +1,13 @@
 use super::util::*;
 
-pub fn generate(
+pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
     _labels: &[DynamicLabel],
     _pc: u16,
     _base_addr: u16,
     bus: &ExternalBus,
-) -> GenerateEpilogue {
+) -> EpilogueDescription {
     let (src, dst) = parse_cmd!(inst, LdHalf { src, dst } => (src, dst));
 
     let load_address_param = |ops: &mut Assembler, id: HalfWordId| match id {
@@ -61,5 +61,5 @@ pub fn generate(
         }
     };
 
-    true
+    Default::default()
 }

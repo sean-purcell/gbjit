@@ -4,7 +4,7 @@ pub use dynasmrt::{DynamicLabel, DynasmApi, DynasmLabelApi};
 
 pub(super) use super::instruction::*;
 pub(super) use super::Command::*;
-pub(super) use super::{ExternalBus, GenerateEpilogue};
+pub(super) use super::{EpilogueDescription, ExternalBus};
 
 macro_rules! parse_cmd {
     ($i:expr, $p:pat => $e:expr) => {
@@ -214,4 +214,53 @@ pub fn load_carry_flag(ops: &mut Assembler) {
         ; clc
         ; l2:
     );
+}
+
+/// The ZF flag will be 1 if the condition is met
+pub fn load_condition(ops: &mut Assembler, cond: Condition) {
+    use Condition::*;
+    match cond {
+        Always => {
+            dynasm!(ops
+                ; cmp eax, eax
+            );
+        }
+        Z => {
+            dynasm!(ops
+                ; mov ah, [rsp + 0x02]
+                ; not ah
+                ; test ah, 0x40
+            );
+        }
+        Nz => {
+            dynasm!(ops
+                ; test BYTE [rsp + 0x02], BYTE 0x40
+            );
+        }
+        C => {
+            dynasm!(ops
+                ; mov ah, [rsp + 0x02]
+                ; not ah
+                ; test ah, 0x01
+            );
+        }
+        Nc => {
+            dynasm!(ops
+                ; test BYTE [rsp + 0x02], BYTE 0x01
+            );
+        }
+    }
+}
+
+pub fn direct_jump(ops: &mut Assembler, target: u16, labels: &[DynamicLabel], base_addr: u16) {
+    let target_idx = target.wrapping_sub(base_addr);
+    if target_idx >= labels.len() as u16 {
+        dynasm!(ops
+            ; jmp ->exit
+        );
+    } else {
+        dynasm!(ops
+            ; jmp =>labels[target_idx as usize]
+        );
+    }
 }

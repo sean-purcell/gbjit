@@ -2,14 +2,14 @@ use log::*;
 
 use super::util::*;
 
-pub fn generate(
+pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
     _labels: &[DynamicLabel],
     pc: u16,
     _base_addr: u16,
     bus: &ExternalBus,
-) -> GenerateEpilogue {
+) -> EpilogueDescription {
     let cmd = parse_cmd!(inst, Control(cmd) => cmd);
 
     use ControlCommand::*;
@@ -43,7 +43,7 @@ pub fn generate(
         }
     };
 
-    true
+    Default::default()
 }
 
 extern "sysv64" fn log_halt(pc: u16) {

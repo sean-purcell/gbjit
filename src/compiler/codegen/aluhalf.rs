@@ -21,14 +21,14 @@ fn generate_operation(ops: &mut Assembler, cmd: AluCommand) {
     }
 }
 
-pub fn generate(
+pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
     _labels: &[DynamicLabel],
     _pc: u16,
     _base_addr: u16,
     bus: &ExternalBus,
-) -> GenerateEpilogue {
+) -> EpilogueDescription {
     let (cmd, op) = parse_cmd!(inst, AluHalf { cmd, op } => (cmd, op));
 
     match op {
@@ -61,5 +61,5 @@ pub fn generate(
         ; mov [rsp + 0x02], ah
     );
 
-    true
+    Default::default()
 }

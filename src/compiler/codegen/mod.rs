@@ -120,7 +120,6 @@ fn label(pc: u16) -> String {
     format!("inst{:04x}", pc)
 }
 
-type GenerateEpilogue = bool;
 type Generator = fn(
     &mut Assembler,
     &Instruction,
@@ -128,7 +127,28 @@ type Generator = fn(
     pc: u16,
     base_addr: u16,
     bus: &ExternalBus,
-) -> GenerateEpilogue;
+) -> EpilogueDescription;
+
+#[derive(Debug, Clone, Copy)]
+enum JumpDescription {
+    Static(u16),
+    Dynamic,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum EpilogueDescription {
+    Default,
+    Jump {
+        target: JumpDescription,
+        untaken: Option<DynamicLabel>,
+    },
+}
+
+impl Default for EpilogueDescription {
+    fn default() -> Self {
+        EpilogueDescription::Default
+    }
+}
 
 fn assemble_instruction(
     ops: &mut Assembler,
@@ -167,29 +187,86 @@ fn assemble_instruction(
         }
     };
 
-    let generate_epilogue = generator(ops, inst, labels, pc, base_addr, bus);
+    let epilogue_desc = generator(ops, inst, labels, pc, base_addr, bus);
 
-    if generate_epilogue {
-        let target_pc = pc + inst.size();
-        dynasm!(ops
-            ; mov r13w, WORD target_pc as _
-            ; add r14, DWORD inst.cycles as _
-        );
-        if inst.size() != 1 {
-            let target_idx = pc + inst.size() - base_addr;
-            if target_idx >= labels.len() as u16 {
+    generate_epilogue(ops, &epilogue_desc, inst, labels, pc, base_addr);
+
+    offset
+}
+
+fn generate_epilogue(
+    ops: &mut Assembler,
+    desc: &EpilogueDescription,
+    inst: &Instruction,
+    labels: &[DynamicLabel],
+    pc: u16,
+    base_addr: u16,
+) {
+    match desc {
+        EpilogueDescription::Default => generate_static_jump_epilogue(
+            ops,
+            pc.wrapping_add(inst.size()),
+            inst.cycles,
+            labels,
+            pc,
+            base_addr,
+        ),
+        EpilogueDescription::Jump { target, untaken } => {
+            match target {
+                JumpDescription::Static(target_pc) => generate_static_jump_epilogue(
+                    ops,
+                    *target_pc,
+                    inst.cycles,
+                    labels,
+                    pc,
+                    base_addr,
+                ),
+                JumpDescription::Dynamic => {
+                    generate_dynamic_jump_epilogue(ops, inst.cycles, labels, pc, base_addr)
+                }
+            }
+            if let Some(label) = untaken {
                 dynasm!(ops
-                    ; jmp ->exit
+                    ; => *label
                 );
-            } else {
-                dynasm!(ops
-                    ; jmp =>labels[target_idx as usize]
+                generate_static_jump_epilogue(
+                    ops,
+                    pc.wrapping_add(inst.size()),
+                    inst.alt_cycles.unwrap(),
+                    labels,
+                    pc,
+                    base_addr,
                 );
             }
         }
     }
+}
 
-    offset
+fn generate_static_jump_epilogue(
+    ops: &mut Assembler,
+    target_pc: u16,
+    cycles: u8,
+    labels: &[DynamicLabel],
+    pc: u16,
+    base_addr: u16,
+) {
+    dynasm!(ops
+        ; mov r13w, WORD target_pc as _
+        ; add r14, DWORD cycles as _
+    );
+    if target_pc != pc.wrapping_add(1) {
+        util::direct_jump(ops, target_pc, labels, base_addr);
+    }
+}
+
+fn generate_dynamic_jump_epilogue(
+    _ops: &mut Assembler,
+    _cycles: u8,
+    _labels: &[DynamicLabel],
+    _pc: u16,
+    _base_addr: u16,
+) {
+    unimplemented!()
 }
 
 fn generate_invalid(
@@ -199,7 +276,7 @@ fn generate_invalid(
     pc: u16,
     _base_addr: u16,
     _bus: &ExternalBus,
-) -> GenerateEpilogue {
+) -> EpilogueDescription {
     dynasm!(ops
         ;; push_state(ops)
         ; mov rax, QWORD log_invalid as _
@@ -209,7 +286,7 @@ fn generate_invalid(
         ;; pop_state(ops)
     );
 
-    true
+    Default::default()
 }
 
 extern "sysv64" fn log_invalid(pc: u16, opcode: u8) {

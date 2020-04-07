@@ -1,13 +1,13 @@
 use super::util::*;
 
-pub fn generate(
+pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
     _labels: &[DynamicLabel],
     _pc: u16,
     _base_addr: u16,
     _bus: &ExternalBus,
-) -> GenerateEpilogue {
+) -> EpilogueDescription {
     let reg = parse_cmd!(inst, AddHl(reg) => reg);
 
     dynasm!(ops
@@ -21,7 +21,7 @@ pub fn generate(
         ; or BYTE [rsp + 0x02], ah
     );
 
-    true
+    Default::default()
 }
 
 fn generate_base(ops: &mut Assembler) {
