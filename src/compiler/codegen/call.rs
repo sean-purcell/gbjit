@@ -20,16 +20,7 @@ pub(super) fn generate(
     };
 
     let next_pc = pc.wrapping_add(inst.size());
-    dynasm!(ops
-        ; dec r12w
-        ; mov di, r12w
-        ; mov sil, BYTE (next_pc >> 8) as _
-        ;; call_write(ops, bus)
-        ; dec r12w
-        ; mov di, r12w
-        ; mov sil, BYTE (next_pc & 0xff) as _
-        ;; call_write(ops, bus)
-    );
+    push_static(ops, bus, next_pc);
 
     let target = JumpDescription::Static(target);
 

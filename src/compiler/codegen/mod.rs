@@ -28,6 +28,8 @@ mod ldhalf;
 mod ldsphl;
 mod pop;
 mod push;
+mod ret;
+mod rst;
 mod storesp;
 
 use util::{pop_state, push_state};
@@ -193,6 +195,11 @@ fn assemble_instruction(
                 target: _,
                 condition: _,
             } => call::generate,
+            Ret {
+                condition: _,
+                intenable: _,
+            } => ret::generate,
+            Rst(_) => rst::generate,
             _ => generate_invalid,
         }
     };
