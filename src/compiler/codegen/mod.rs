@@ -197,7 +197,7 @@ fn assemble_instruction(
         }
     };
 
-    let epilogue_desc = generator(ops, inst, labels, pc, base_addr, bus);
+    let epilogue_desc = generator(ops, inst, pc, bus);
 
     generate_epilogue(ops, &epilogue_desc, inst, labels, pc, base_addr);
 
@@ -215,24 +215,24 @@ fn generate_epilogue(
     match desc {
         EpilogueDescription::Default => generate_static_jump_epilogue(
             ops,
-            pc.wrapping_add(inst.size()),
             inst.cycles,
-            labels,
             pc,
+            pc.wrapping_add(inst.size()),
             base_addr,
+            labels,
         ),
         EpilogueDescription::Jump { target, skip_label } => {
             match target {
                 JumpDescription::Static(target_pc) => generate_static_jump_epilogue(
                     ops,
-                    *target_pc,
                     inst.cycles,
-                    labels,
                     pc,
+                    *target_pc,
                     base_addr,
+                    labels,
                 ),
                 JumpDescription::Dynamic => {
-                    generate_dynamic_jump_epilogue(ops, inst.cycles, labels, pc, base_addr)
+                    generate_dynamic_jump_epilogue(ops, inst.cycles, pc, base_addr, labels)
                 }
             }
             if let Some(label) = skip_label {
@@ -241,11 +241,11 @@ fn generate_epilogue(
                 );
                 generate_static_jump_epilogue(
                     ops,
-                    pc.wrapping_add(inst.size()),
                     inst.alt_cycles.unwrap(),
-                    labels,
                     pc,
+                    pc.wrapping_add(inst.size()),
                     base_addr,
+                    labels,
                 );
             }
         }
@@ -254,11 +254,11 @@ fn generate_epilogue(
 
 fn generate_static_jump_epilogue(
     ops: &mut Assembler,
-    target_pc: u16,
     cycles: u8,
-    labels: &[DynamicLabel],
     pc: u16,
+    target_pc: u16,
     base_addr: u16,
+    labels: &[DynamicLabel],
 ) {
     dynasm!(ops
         ; mov r13w, WORD target_pc as _
@@ -272,9 +272,9 @@ fn generate_static_jump_epilogue(
 fn generate_dynamic_jump_epilogue(
     _ops: &mut Assembler,
     _cycles: u8,
-    _labels: &[DynamicLabel],
     _pc: u16,
     _base_addr: u16,
+    _labels: &[DynamicLabel],
 ) {
     unimplemented!()
 }
@@ -282,9 +282,7 @@ fn generate_dynamic_jump_epilogue(
 fn generate_invalid(
     ops: &mut Assembler,
     inst: &Instruction,
-    _labels: &[DynamicLabel],
     pc: u16,
-    _base_addr: u16,
     _bus: &ExternalBus,
 ) -> EpilogueDescription {
     dynasm!(ops

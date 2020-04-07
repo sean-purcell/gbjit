@@ -3,9 +3,7 @@ use super::util::*;
 pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
-    _labels: &[DynamicLabel],
     pc: u16,
-    _base_addr: u16,
     bus: &ExternalBus,
 ) -> EpilogueDescription {
     let (target, condition) = parse_cmd!(inst, Call { target, condition } => (target, condition));
