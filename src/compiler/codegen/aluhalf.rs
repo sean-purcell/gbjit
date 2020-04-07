@@ -41,17 +41,7 @@ pub fn generate(
     };
 
     match cmd {
-        AluCommand::Adc | AluCommand::Sbc => {
-            dynasm!(ops
-                ; test [rsp + 2], 1
-                ; jz >l1
-                ; stc
-                ; jmp >l2
-                ; l1:
-                ; clc
-                ; l2:
-            );
-        }
+        AluCommand::Adc | AluCommand::Sbc => load_carry_flag(ops),
         _ => {}
     }
 

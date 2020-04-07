@@ -55,6 +55,16 @@ pub fn call_write(ops: &mut Assembler, bus: &ExternalBus) {
     );
 }
 
+pub fn call_interrupts(ops: &mut Assembler, bus: &ExternalBus) {
+    dynasm!(ops
+        ;; push_state(ops)
+        ; mov rsi, rbp
+        ; mov rax, QWORD bus.write as _
+        ; call rax
+        ;; pop_state(ops)
+    );
+}
+
 pub fn load_halfreg(ops: &mut Assembler, r: HalfReg) {
     macro_rules! ld {
         ($ops:expr, $r:tt) => {
@@ -191,5 +201,17 @@ pub fn deconstruct_af(ops: &mut Assembler) {
         ; or al, ah
         ; mov [rsp + 0x02], al
         ; mov al, [rsp + 0x01]
+    );
+}
+
+pub fn load_carry_flag(ops: &mut Assembler) {
+    dynasm!(ops
+        ; test [rsp + 2], 1
+        ; jz >l1
+        ; stc
+        ; jmp >l2
+        ; l1:
+        ; clc
+        ; l2:
     );
 }

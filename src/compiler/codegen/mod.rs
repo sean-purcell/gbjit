@@ -13,6 +13,8 @@ mod util;
 mod addhl;
 mod addsp;
 mod aluhalf;
+mod bithalf;
+mod control;
 mod cpl;
 mod daa;
 mod hlspoffset;
@@ -159,6 +161,8 @@ fn assemble_instruction(
             AddSp(_) => addsp::generate,
             HlSpOffset(_) => hlspoffset::generate,
             LdSpHl => ldsphl::generate,
+            BitHalf { cmd: _, op: _ } => bithalf::generate,
+            Control(_) => control::generate,
             _ => generate_invalid,
         }
     };
