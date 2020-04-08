@@ -8,11 +8,11 @@ extern crate dynasm;
 
 use std::fs;
 
-use log::*;
 use structopt::StructOpt;
 
 mod compiler;
 mod cpu_state;
+mod system;
 
 #[derive(StructOpt)]
 #[structopt(name = "gbjit")]
@@ -54,9 +54,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         data.len() as u16,
         |x| data.get(x as usize).copied(),
         compiler::ExternalBus {
-            read: dummy_read,
-            write: dummy_write,
-            interrupts: dummy_interrupts,
+            read: system::memory::Dummy::read,
+            write: system::memory::Dummy::write,
+            interrupts: system::memory::Dummy::interrupts,
         },
         &compiler::CompileOptions {
             trace_pc: args.trace_pc,
@@ -75,9 +75,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!();
     }
 
+    let mut mem = system::memory::Dummy::new();
     let mut cpu_state = cpu_state::CpuState::new();
 
-    block.enter(&mut cpu_state, &mut ());
+    block.enter(&mut cpu_state, &mut mem);
 
     println!("{:?}", cpu_state);
 
@@ -96,19 +97,4 @@ fn print_disassembly<T>(block: &compiler::CodeBlock<T>, full: bool) {
         }
         idx += i.size() as usize;
     }
-}
-
-fn dummy_read(_: &mut (), addr: u16) -> (bool, u8) {
-    debug!("Read  {:#06x?} -> {:#04x}", addr, 0);
-    (false, 0)
-}
-
-fn dummy_write(_: &mut (), addr: u16, val: u8) -> bool {
-    debug!("Write {:#06x?} <- {:#04x}", addr, val);
-    false
-}
-
-fn dummy_interrupts(_: &mut (), enabled: bool) -> bool {
-    debug!("Interrupts enabled: {}", enabled);
-    false
 }
