@@ -1,7 +1,11 @@
+use std::ffi::c_void;
+
 use dynasm::dynasm;
 use dynasmrt::x64::Assembler;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer};
 use log::*;
+
+use crate::cpu_state::CpuState;
 
 use super::external_bus::TypeErased as ExternalBus;
 use super::instruction::{self, *};
@@ -32,12 +36,13 @@ mod ret;
 mod rst;
 mod storesp;
 
-use util::{pop_state, push_state};
+use util::{pop_state, push_state, repack_cpu_state, unpack_cpu_state};
 
 pub fn codegen(
     base_addr: u16,
     insts: &[Instruction],
     bus: &ExternalBus,
+    options: &super::CompileOptions,
 ) -> Result<(ExecutableBuffer, AssemblyOffset, Vec<AssemblyOffset>), CompileError> {
     let mut ops = Assembler::new()?;
 
@@ -57,11 +62,14 @@ pub fn codegen(
                 pc,
                 base_addr,
                 bus,
+                options.trace_pc,
             )
         })
         .collect();
 
     generate_overrun(&mut ops);
+
+    generate_dynamic_jump_table(&mut ops, base_addr, labels.as_slice());
 
     ops.commit()
         .expect("No assembly errors should have occurred");
@@ -75,6 +83,7 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
     // Entry has type: fn (cpu_state: *mut CpuState, target_pc: u64, parameter: *mut c_void)
     let offset = ops.offset();
     dynasm!(ops
+        ; -> block_start:
         ; push rbp
         ; mov [rsp - 0x08], r12
         ; mov [rsp - 0x10], r13
@@ -82,27 +91,13 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
         ; mov [rsp - 0x20], r15
         ; sub rsp, 0x40
         ; mov rbp, rdx
-        ; mov r14, [rdi + 0x00] // cycles
-        ; mov r12w, [rdi + 0x08] // sp
-        ; mov r13w, [rdi + 0x0a] // pc
-        ; mov ax, [rdi + 0x0c] // af
-        ; mov [rsp + 0x02], ah // f
-        ; mov bx, [rdi + 0x0e] // bc
-        ; mov cx, [rdi + 0x10] // de
-        ; mov dx, [rdi + 0x12] // hl
+        ;; unpack_cpu_state(ops)
         ; mov [rsp + 0x08], rdi
         ; mov [rsp + 0x10], rdx
         ; jmp rsi
         ; -> exit:
         ; mov rdi, [rsp + 0x08]
-        ; mov [rdi + 0x00], r14 // cycles
-        ; mov [rdi + 0x08], r12w // sp
-        ; mov [rdi + 0x0a], r13w // pc
-        ; mov ah, [rsp + 0x02] // f
-        ; mov [rdi + 0x0c], ax // af
-        ; mov [rdi + 0x0e], bx // bc
-        ; mov [rdi + 0x10], cx // de
-        ; mov [rdi + 0x12], dx // hl
+        ;; repack_cpu_state(ops)
         ; add rsp, 0x40
         ; mov r12, [rsp - 0x08]
         ; mov r13, [rsp - 0x10]
@@ -161,11 +156,23 @@ fn assemble_instruction(
     pc: u16,
     base_addr: u16,
     bus: &ExternalBus,
+    trace_pc: bool,
 ) -> AssemblyOffset {
     let offset = ops.offset();
     dynasm!(ops
         ; => labels[(pc-base_addr) as usize]
     );
+
+    if trace_pc {
+        dynasm!(ops
+            ;; push_state(ops)
+            ; mov rdi, [rsp + 0x08]
+            ;; repack_cpu_state(ops)
+            ; mov rax, QWORD log_state as _
+            ; call rax
+            ;; pop_state(ops)
+        );
+    }
 
     let generator = {
         use Command::*;
@@ -238,9 +245,7 @@ fn generate_epilogue(
                     base_addr,
                     labels,
                 ),
-                JumpDescription::Dynamic => {
-                    generate_dynamic_jump_epilogue(ops, inst.cycles, pc, base_addr, labels)
-                }
+                JumpDescription::Dynamic => generate_dynamic_jump_epilogue(ops, inst.cycles),
             }
             if let Some(label) = skip_label {
                 dynasm!(ops
@@ -276,14 +281,44 @@ fn generate_static_jump_epilogue(
     }
 }
 
-fn generate_dynamic_jump_epilogue(
-    _ops: &mut Assembler,
-    _cycles: u8,
-    _pc: u16,
-    _base_addr: u16,
-    _labels: &[DynamicLabel],
-) {
-    unimplemented!()
+fn generate_dynamic_jump_epilogue(ops: &mut Assembler, cycles: u8) {
+    dynasm!(ops
+        ; mov r13w, di
+        ; add r14, DWORD cycles as _
+        ; jmp ->jump
+    );
+}
+
+fn generate_dynamic_jump_table(ops: &mut Assembler, base_addr: u16, labels: &[DynamicLabel]) {
+    dynasm!(ops
+        ; -> jump:
+        ; sub di, WORD base_addr as _
+        ; cmp di, WORD labels.len() as _
+        ; jae ->exit
+        ; and rdi, DWORD 0xffff as _
+        ; shl rdi, 3
+        ; lea r8, [>jump_table]
+        ; add r8, rdi
+        ; mov rsi, [r8]
+        ; lea r9, [->block_start]
+        ; add rsi, r9
+        ; jmp rsi
+        ; jump_table:
+    );
+
+    let offsets: Vec<AssemblyOffset> = {
+        let registry = ops.labels();
+        labels
+            .iter()
+            .map(|x| registry.resolve_dynamic(*x).unwrap())
+            .collect()
+    };
+
+    for offset in offsets.iter() {
+        dynasm!(ops
+            ; .qword offset.0 as _
+        );
+    }
 }
 
 fn generate_invalid(
@@ -309,4 +344,10 @@ extern "sysv64" fn log_invalid(pc: u16, opcode: u8) {
         "Executing invalid instruction at {:#06x?}, opcode {:#04x?}",
         pc, opcode
     );
+}
+
+extern "sysv64" fn log_state(state: *const c_void) {
+    let state: &CpuState = unsafe { &*(state as *const CpuState) };
+    let pc = state.pc;
+    trace!("Executing instruction at {:#06x?}, state: {:?}", pc, state);
 }

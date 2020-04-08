@@ -16,6 +16,32 @@ macro_rules! parse_cmd {
     };
 }
 
+pub fn unpack_cpu_state(ops: &mut Assembler) {
+    dynasm!(ops
+        ; mov r14, [rdi + 0x00] // cycles
+        ; mov r12w, [rdi + 0x08] // sp
+        ; mov r13w, [rdi + 0x0a] // pc
+        ; mov ax, [rdi + 0x0c] // af
+        ; mov [rsp + 0x02], ah // f
+        ; mov bx, [rdi + 0x0e] // bc
+        ; mov cx, [rdi + 0x10] // de
+        ; mov dx, [rdi + 0x12] // hl
+    );
+}
+
+pub fn repack_cpu_state(ops: &mut Assembler) {
+    dynasm!(ops
+        ; mov [rdi + 0x00], r14 // cycles
+        ; mov [rdi + 0x08], r12w // sp
+        ; mov [rdi + 0x0a], r13w // pc
+        ; mov ah, [rsp + 0x02] // f
+        ; mov [rdi + 0x0c], ax // af
+        ; mov [rdi + 0x0e], bx // bc
+        ; mov [rdi + 0x10], cx // de
+        ; mov [rdi + 0x12], dx // hl
+    );
+}
+
 pub fn push_state(ops: &mut Assembler) {
     // TODO: add r11 when we start using that
     dynasm!(ops

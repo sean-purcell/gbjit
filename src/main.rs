@@ -36,6 +36,10 @@ struct Args {
     /// Whether to print the disassembly of the code block
     #[structopt(short, long)]
     x64_disasm: bool,
+
+    /// Whether to generate log traces for each instruction executed
+    #[structopt(short, long)]
+    trace_pc: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -53,6 +57,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             read: dummy_read,
             write: dummy_write,
             interrupts: dummy_interrupts,
+        },
+        &compiler::CompileOptions {
+            trace_pc: args.trace_pc,
         },
     )?;
 

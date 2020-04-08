@@ -44,11 +44,23 @@ impl From<DynasmError> for CompileError {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct CompileOptions {
+    pub trace_pc: bool,
+}
+
+impl Default for CompileOptions {
+    fn default() -> Self {
+        CompileOptions { trace_pc: false }
+    }
+}
+
 pub fn compile<T>(
     base_addr: u16,
     len: u16,
     read: impl Fn(u16) -> Option<u8>,
     bus: ExternalBus<T>,
+    options: &CompileOptions,
 ) -> Result<CodeBlock<T>, CompileError> {
     let padded: Box<[u8]> = (0..len + 2).map(read).map(|x| x.unwrap_or(0)).collect();
     let instructions: Vec<Instruction> = padded
@@ -56,8 +68,12 @@ pub fn compile<T>(
         .map(|bytes| decoder::decode_full(bytes.try_into().unwrap()))
         .collect();
 
-    let (buf, entry, offsets) =
-        codegen::codegen(base_addr, instructions.as_slice(), &bus.type_erased())?;
+    let (buf, entry, offsets) = codegen::codegen(
+        base_addr,
+        instructions.as_slice(),
+        &bus.type_erased(),
+        options,
+    )?;
 
     Ok(CodeBlock::new(
         base_addr,
