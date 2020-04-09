@@ -12,7 +12,7 @@ use structopt::StructOpt;
 
 mod compiler;
 mod cpu_state;
-mod system;
+mod devices;
 
 #[derive(StructOpt)]
 #[structopt(name = "gbjit")]
@@ -54,9 +54,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         data.len() as u16,
         |x| data.get(x as usize).copied(),
         compiler::ExternalBus {
-            read: system::memory::Dummy::read,
-            write: system::memory::Dummy::write,
-            interrupts: system::memory::Dummy::interrupts,
+            read: devices::memory::Dummy::read,
+            write: devices::memory::Dummy::write,
+            interrupts: devices::memory::Dummy::interrupts,
         },
         &compiler::CompileOptions {
             trace_pc: args.trace_pc,
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!();
     }
 
-    let mut mem = system::memory::Dummy::new();
+    let mut mem = devices::memory::Dummy::new();
     let mut cpu_state = cpu_state::CpuState::new();
 
     block.enter(&mut cpu_state, &mut mem);
