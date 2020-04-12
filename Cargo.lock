@@ -149,6 +149,7 @@ dependencies = [
  "log",
  "memmap",
  "num",
+ "quick-error",
  "structopt",
 ]
 
