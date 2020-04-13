@@ -13,6 +13,12 @@ impl Rom {
             data: fs::read(path)?,
         })
     }
+
+    pub fn new_from_slice(data: &[u8]) -> Self {
+        Rom {
+            data: data.to_vec(),
+        }
+    }
 }
 
 impl Deref for Rom {

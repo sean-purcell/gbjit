@@ -4,6 +4,7 @@
     clippy::transmute_ptr_to_ptr // Makes code cleaner when the destination type is clear
 )]
 #![feature(proc_macro_hygiene)]
+
 extern crate dynasm;
 
 use std::fs;
@@ -22,10 +23,13 @@ A WIP just-in-time compiler for the GameBoy and GameBoy Colour.
 Currently just disassembles a given binary.
 "#)]
 struct Args {
-    /// File to disassemble.
-    binary: String,
+    /// GB bios file
+    bios: String,
 
-    /// Whether to print the disassembled rom
+    /// GB rom to run
+    rom: String,
+
+    /// Whether to print disassembled pages before executing
     #[structopt(short, long)]
     disassemble: bool,
 
@@ -47,16 +51,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::from_args();
 
-    let data = fs::read(args.binary)?;
+    let mut devices = devices::Devices::new(&args.bios, &args.rom)?;
+    let data = fs::read(args.bios)?;
 
     let block = compiler::compile(
         0,
         data.len() as u16,
         |x| data.get(x as usize).copied(),
         compiler::ExternalBus {
-            read: devices::memory::Dummy::read,
-            write: devices::memory::Dummy::write,
-            interrupts: devices::memory::Dummy::interrupts,
+            read: devices::Devices::read,
+            write: devices::Devices::write,
+            interrupts: devices::Devices::interrupts,
         },
         &compiler::CompileOptions {
             trace_pc: args.trace_pc,
@@ -75,10 +80,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!();
     }
 
-    let mut mem = devices::memory::Dummy::new();
     let mut cpu_state = cpu_state::CpuState::new();
 
-    block.enter(&mut cpu_state, &mut mem);
+    block.enter(&mut cpu_state, &mut devices);
 
     println!("{:?}", cpu_state);
 

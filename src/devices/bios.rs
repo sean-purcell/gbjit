@@ -22,7 +22,7 @@ impl Device for Bios {
         256
     }
 
-    fn map(&mut self, addr: u16) -> &mut dyn Page {
+    fn map(&mut self, _addr: u16) -> &mut dyn Page {
         self
     }
 }
@@ -54,9 +54,5 @@ impl Page for Bios {
 
     fn read_all(&mut self) -> &[u8] {
         &*self.0
-    }
-
-    fn dirty(&self) -> bool {
-        false
     }
 }

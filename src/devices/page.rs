@@ -1,6 +1,6 @@
 use super::Kind;
 
-pub type PageId = (Kind, usize);
+pub type PageId = (Kind, u64);
 
 pub trait Page {
     fn base_addr(&self) -> u16;
@@ -15,6 +15,4 @@ pub trait Page {
 
     // TODO: default implementation?
     fn read_all(&mut self) -> &[u8];
-
-    fn dirty(&self) -> bool;
 }

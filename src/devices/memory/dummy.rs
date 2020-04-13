@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use log::*;
 
 pub struct Dummy([u8; 65536]);

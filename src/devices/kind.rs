@@ -2,4 +2,5 @@
 pub enum Kind {
     Bios,
     Cartridge,
+    Ram,
 }

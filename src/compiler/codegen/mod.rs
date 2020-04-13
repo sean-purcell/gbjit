@@ -115,10 +115,6 @@ fn generate_overrun(ops: &mut Assembler) {
     )
 }
 
-fn label(pc: u16) -> String {
-    format!("inst{:04x}", pc)
-}
-
 type Generator = fn(
     &mut Assembler,
     &Instruction,
