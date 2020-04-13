@@ -115,14 +115,8 @@ fn generate_overrun(ops: &mut Assembler) {
     )
 }
 
-type Generator = fn(
-    &mut Assembler,
-    &Instruction,
-    labels: &[DynamicLabel],
-    pc: u16,
-    base_addr: u16,
-    bus: &ExternalBus,
-) -> EpilogueDescription;
+type Generator =
+    fn(&mut Assembler, &Instruction, pc: u16, bus: &ExternalBus) -> EpilogueDescription;
 
 #[derive(Debug, Clone, Copy)]
 enum JumpDescription {
@@ -170,7 +164,7 @@ fn assemble_instruction(
         );
     }
 
-    let generator = {
+    let generator: Generator = {
         use Command::*;
         match inst.cmd {
             LdHalf { src: _, dst: _ } => ldhalf::generate,

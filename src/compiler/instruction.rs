@@ -10,7 +10,6 @@ pub enum Reg {
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum HalfReg {
     A,
-    F,
     B,
     C,
     D,

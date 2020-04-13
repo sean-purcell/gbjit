@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::convert::TryInto;
 use std::fmt;
 use std::io;
@@ -85,6 +83,7 @@ pub fn compile<T>(
     ))
 }
 
+#[allow(dead_code)]
 pub fn decode(data: &[u8]) -> Vec<Instruction> {
     let mut padded = data.to_vec();
     padded.extend([0, 0].iter()); // Pad the data a bit in case the last instruction is long

@@ -109,7 +109,6 @@ pub fn load_halfreg(ops: &mut Assembler, r: HalfReg) {
         E => ld!(ops, cl),
         H => ld!(ops, dh),
         L => ld!(ops, dl),
-        F => panic!("F should not be used in a 8-bit load"),
     }
 }
 
@@ -131,7 +130,6 @@ pub fn store_halfreg(ops: &mut Assembler, r: HalfReg) {
         E => st!(ops, cl),
         H => st!(ops, dh),
         L => st!(ops, dl),
-        F => panic!("F should not be used in a 8-bit store"),
     }
 }
 
