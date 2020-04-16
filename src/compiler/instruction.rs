@@ -1,4 +1,4 @@
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum Reg {
     AF,
     BC,
@@ -7,7 +7,7 @@ pub enum Reg {
     SP,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum HalfReg {
     A,
     B,
@@ -18,7 +18,7 @@ pub enum HalfReg {
     L,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum HalfWordId {
     RegVal(HalfReg),
     RegAddr(Reg),
@@ -28,7 +28,7 @@ pub enum HalfWordId {
     Imm(u8),
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum AluCommand {
     Add,
     Adc,
@@ -40,19 +40,19 @@ pub enum AluCommand {
     Cp,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum Location {
     Reg(HalfReg),
     Mem,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum AluOperand {
     Loc(Location),
     Imm(u8),
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum BitCommand {
     Rlc,
     Rl,
@@ -67,7 +67,7 @@ pub enum BitCommand {
     Res(u8),
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum ControlCommand {
     Nop,
     Halt,
@@ -78,7 +78,7 @@ pub enum ControlCommand {
     Ei,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum Condition {
     Always,
     Z,
@@ -87,14 +87,14 @@ pub enum Condition {
     Nc,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum JumpTarget {
     Absolute(u16),
     Hl,
     Relative(i8),
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum Command {
     LdHalf {
         src: HalfWordId,
@@ -152,7 +152,7 @@ pub enum Command {
     Invalid,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub struct Instruction {
     pub cmd: Command,
     pub cycles: u8,

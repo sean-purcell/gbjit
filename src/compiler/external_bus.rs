@@ -25,7 +25,7 @@ pub struct Wrapper<'a, T> {
 }
 
 impl<T> Generic<T> {
-    pub(super) fn type_erased(&self) -> TypeErased {
+    pub fn type_erased(&self) -> TypeErased {
         type W<'a, T> = Wrapper<'a, T>;
 
         TypeErased {

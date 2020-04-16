@@ -5,8 +5,8 @@ use std::io;
 use dynasmrt::DynasmError;
 
 mod code_block;
-mod codegen;
-mod decoder;
+pub mod codegen;
+pub mod decoder;
 mod external_bus;
 pub mod instruction;
 

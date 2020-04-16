@@ -63,6 +63,10 @@ impl<T> CodeBlock<T> {
         (self.entry)(cpu_state as *mut CpuState, target_pc as u64, void_wrapper)
     }
 
+    pub fn offset(&self, idx: usize) -> usize {
+        self.offsets[idx].0
+    }
+
     pub fn disassemble(&self) -> Result<Vec<String>, CsError> {
         use capstone::arch::x86;
         use capstone::arch::{BuildsCapstone, BuildsCapstoneSyntax};
