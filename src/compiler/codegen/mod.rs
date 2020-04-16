@@ -121,6 +121,7 @@ type Generator =
 #[derive(Debug, Clone, Copy)]
 enum JumpDescription {
     Static(u16),
+    Relative(i8),
     Dynamic, // Target should be put in di
 }
 
@@ -232,6 +233,14 @@ fn generate_epilogue(
                     inst.cycles,
                     pc,
                     *target_pc,
+                    base_addr,
+                    labels,
+                ),
+                JumpDescription::Relative(offset) => generate_static_jump_epilogue(
+                    ops,
+                    inst.cycles,
+                    pc,
+                    pc.wrapping_add(inst.size()).wrapping_add(*offset as u16),
                     base_addr,
                     labels,
                 ),

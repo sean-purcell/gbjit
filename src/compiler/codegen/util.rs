@@ -172,11 +172,12 @@ pub fn load_reg(ops: &mut Assembler, r: Reg) {
 
     use Reg::*;
     match r {
-        AF => panic!("AF should not be used in a 16-bit load"),
+        AF => materialize_af(ops),
         BC => ld!(ops, bx),
         DE => ld!(ops, cx),
         HL => ld!(ops, dx),
         SP => ld!(ops, r12w),
+        PC => ld!(ops, r13w),
     }
 }
 
@@ -191,15 +192,16 @@ pub fn store_reg(ops: &mut Assembler, r: Reg) {
 
     use Reg::*;
     match r {
-        AF => panic!("AF should not be used in a 16-bit store"),
+        AF => deconstruct_af(ops),
         BC => st!(ops, bx),
         DE => st!(ops, cx),
         HL => st!(ops, dx),
         SP => st!(ops, r12w),
+        PC => st!(ops, r13w),
     }
 }
 
-/// Generate a correct AF register at [rsp]
+/// Generate a correct AF register in di
 pub fn materialize_af(ops: &mut Assembler) {
     dynasm!(ops
         ; mov [rsp + 0x01], al
@@ -210,21 +212,23 @@ pub fn materialize_af(ops: &mut Assembler) {
         ; and ah, BYTE 1 as _
         ; shl ah, 4
         ; or al, ah
-        ; mov [rsp + 0x00], al
+        ; mov ah, [rsp + 0x01]
+        ; mov di, ax
     );
 }
 
-/// Generate the LAHF format and the al register from AF at [rsp]
+/// Generate the LAHF format and the al register from AF in di
 pub fn deconstruct_af(ops: &mut Assembler) {
     dynasm!(ops
-        ; mov ah, [rsp + 0x00]
-        ; mov al, ah
+        ; mov ax, di
+        ; mov ah, al
         ; shr al, 1
         ; shr ah, 4
         ; and ah, BYTE 1 as _
         ; or al, ah
         ; mov [rsp + 0x02], al
-        ; mov al, [rsp + 0x01]
+        ; mov ax, di
+        ; mov al, ah
     );
 }
 
@@ -287,6 +291,36 @@ pub fn direct_jump(ops: &mut Assembler, target: u16, labels: &[DynamicLabel], ba
             ; jmp =>labels[target_idx as usize]
         );
     }
+}
+
+pub fn push_reg(ops: &mut Assembler, bus: &ExternalBus, reg: Reg) {
+    dynasm!(ops
+        ;; load_reg(ops, reg)
+        ; mov [rsp + 0x00], di
+        ; sub r12w, 1
+        ; mov di, r12w
+        ; mov sil, [rsp + 0x01]
+        ;; call_write(ops, bus)
+        ; sub r12w, 1
+        ; mov di, r12w
+        ; mov sil, [rsp + 0x00]
+        ;; call_write(ops, bus)
+    );
+}
+
+pub fn pop_reg(ops: &mut Assembler, bus: &ExternalBus, reg: Reg) {
+    dynasm!(ops
+        ; mov di, r12w
+        ;; call_read(ops, bus)
+        ; mov [rsp + 0x00], ah
+        ; add r12w, 1
+        ; mov di, r12w
+        ;; call_read(ops, bus)
+        ; mov [rsp + 0x01], ah
+        ; add r12w, 1
+        ; mov di, [rsp + 0x00]
+        ;; store_reg(ops, reg)
+    );
 }
 
 pub fn push_static(ops: &mut Assembler, bus: &ExternalBus, val: u16) {

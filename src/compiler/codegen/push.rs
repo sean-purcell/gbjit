@@ -8,25 +8,7 @@ pub(super) fn generate(
 ) -> EpilogueDescription {
     let reg = parse_cmd!(inst, Push(reg) => reg);
 
-    if reg == Reg::AF {
-        materialize_af(ops);
-    } else {
-        dynasm!(ops
-            ;; load_reg(ops, reg)
-            ; mov [rsp], di
-        );
-    }
-
-    dynasm!(ops
-        ; sub r12w, 1
-        ; mov di, r12w
-        ; mov sil, [rsp + 0x01]
-        ;; call_write(ops, bus)
-        ; sub r12w, 1
-        ; mov di, r12w
-        ; mov sil, [rsp + 0x00]
-        ;; call_write(ops, bus)
-    );
+    push_reg(ops, bus, reg);
 
     Default::default()
 }

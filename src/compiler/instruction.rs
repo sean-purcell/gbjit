@@ -5,6 +5,7 @@ pub enum Reg {
     DE,
     HL,
     SP,
+    PC,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]

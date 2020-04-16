@@ -3,7 +3,7 @@ use super::util::*;
 pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
-    pc: u16,
+    _pc: u16,
     _bus: &ExternalBus,
 ) -> EpilogueDescription {
     let (target, condition) = parse_cmd!(inst, Jump { target, condition } => (target, condition));
@@ -28,10 +28,7 @@ pub(super) fn generate(
             );
             JumpDescription::Dynamic
         }
-        Relative(offset) => {
-            let target_pc = pc.wrapping_add(inst.size()).wrapping_add(offset as u16);
-            JumpDescription::Static(target_pc)
-        }
+        Relative(offset) => JumpDescription::Relative(offset),
     };
     EpilogueDescription::Jump {
         target: jump_description,

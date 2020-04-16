@@ -5,7 +5,7 @@ use super::util::*;
 pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
-    pc: u16,
+    _pc: u16,
     bus: &ExternalBus,
 ) -> EpilogueDescription {
     let cmd = parse_cmd!(inst, Control(cmd) => cmd);
@@ -17,7 +17,7 @@ pub(super) fn generate(
             dynasm!(ops
                 ;; push_state(ops)
                 ; mov rax, QWORD log_halt as _
-                ; mov rdi, QWORD pc as _
+                ; mov di, r13w
                 ; call rax
                 ;; pop_state(ops)
             );

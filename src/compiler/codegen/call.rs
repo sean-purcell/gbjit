@@ -3,7 +3,7 @@ use super::util::*;
 pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
-    pc: u16,
+    _pc: u16,
     bus: &ExternalBus,
 ) -> EpilogueDescription {
     let (target, condition) = parse_cmd!(inst, Call { target, condition } => (target, condition));
@@ -19,8 +19,7 @@ pub(super) fn generate(
         None
     };
 
-    let next_pc = pc.wrapping_add(inst.size());
-    push_static(ops, bus, next_pc);
+    push_reg(ops, bus, Reg::PC);
 
     let target = JumpDescription::Static(target);
 

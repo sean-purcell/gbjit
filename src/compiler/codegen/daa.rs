@@ -283,11 +283,10 @@ mod test {
         let daa_offset = ops.offset();
         dynasm!(ops
             ; sub rsp, 8
-            ; mov [rsp], di
             ;; deconstruct_af(&mut ops)
             ;; generate_base(&mut ops)
             ;; materialize_af(&mut ops)
-            ; mov ax, [rsp]
+            ; mov ax, di
             ; add rsp, 8
             ; ret
         );
