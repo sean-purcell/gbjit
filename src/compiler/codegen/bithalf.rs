@@ -51,7 +51,6 @@ fn generate_shift(ops: &mut Assembler, cmd: BitCommand, set_zero: bool) {
 pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
-    _pc: u16,
     bus: &ExternalBus,
 ) -> EpilogueDescription {
     let (cmd, op) = parse_cmd!(inst, BitHalf { cmd, op } => (cmd, op));

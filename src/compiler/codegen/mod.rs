@@ -115,8 +115,7 @@ fn generate_overrun(ops: &mut Assembler) {
     )
 }
 
-type Generator =
-    fn(&mut Assembler, &Instruction, pc: u16, bus: &ExternalBus) -> EpilogueDescription;
+type Generator = fn(&mut Assembler, &Instruction, &ExternalBus) -> EpilogueDescription;
 
 #[derive(Debug, Clone, Copy)]
 enum JumpDescription {
@@ -202,7 +201,7 @@ fn assemble_instruction(
         }
     };
 
-    let epilogue_desc = generator(ops, inst, pc, bus);
+    let epilogue_desc = generator(ops, inst, bus);
 
     generate_epilogue(ops, &epilogue_desc, inst, labels, pc, base_addr);
 
@@ -323,13 +322,12 @@ fn generate_dynamic_jump_table(ops: &mut Assembler, base_addr: u16, labels: &[Dy
 fn generate_invalid(
     ops: &mut Assembler,
     inst: &Instruction,
-    pc: u16,
     _bus: &ExternalBus,
 ) -> EpilogueDescription {
     dynasm!(ops
         ;; push_state(ops)
         ; mov rax, QWORD log_invalid as _
-        ; mov rdi, QWORD pc as _
+        ; mov di, r13w
         ; mov rsi, QWORD inst.encoding[0] as _
         ; call rax
         ;; pop_state(ops)

@@ -3,7 +3,6 @@ use super::util::*;
 pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
-    _pc: u16,
     _bus: &ExternalBus,
 ) -> EpilogueDescription {
     let offset = parse_cmd!(inst, HlSpOffset(offset) => offset);

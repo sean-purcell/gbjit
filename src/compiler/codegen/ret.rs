@@ -3,7 +3,6 @@ use super::util::*;
 pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
-    _pc: u16,
     bus: &ExternalBus,
 ) -> EpilogueDescription {
     // TODO: use intenable

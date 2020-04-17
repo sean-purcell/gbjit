@@ -24,7 +24,6 @@ fn generate_operation(ops: &mut Assembler, cmd: AluCommand) {
 pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
-    _pc: u16,
     bus: &ExternalBus,
 ) -> EpilogueDescription {
     let (cmd, op) = parse_cmd!(inst, AluHalf { cmd, op } => (cmd, op));

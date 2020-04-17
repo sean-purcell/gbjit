@@ -322,16 +322,3 @@ pub fn pop_reg(ops: &mut Assembler, bus: &ExternalBus, reg: Reg) {
         ;; store_reg(ops, reg)
     );
 }
-
-pub fn push_static(ops: &mut Assembler, bus: &ExternalBus, val: u16) {
-    dynasm!(ops
-        ; dec r12w
-        ; mov di, r12w
-        ; mov sil, BYTE (val >> 8) as _
-        ;; call_write(ops, bus)
-        ; dec r12w
-        ; mov di, r12w
-        ; mov sil, BYTE (val & 0xff) as _
-        ;; call_write(ops, bus)
-    );
-}

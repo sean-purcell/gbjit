@@ -5,7 +5,6 @@ use super::util::*;
 pub(super) fn generate(
     ops: &mut Assembler,
     inst: &Instruction,
-    _pc: u16,
     bus: &ExternalBus,
 ) -> EpilogueDescription {
     let cmd = parse_cmd!(inst, Control(cmd) => cmd);
