@@ -9,7 +9,7 @@ use crate::cpu_state::CpuState;
 
 use super::external_bus::TypeErased as ExternalBus;
 use super::instruction::{self, *};
-use super::CompileError;
+use super::{decoder, CompileError, CompileOptions, OneoffTable};
 
 #[macro_use]
 mod util;
@@ -36,13 +36,14 @@ mod ret;
 mod rst;
 mod storesp;
 
-use util::{pop_state, push_state, repack_cpu_state, unpack_cpu_state};
+use util::{call_read, pop_state, push_state, repack_cpu_state, unpack_cpu_state};
 
 pub fn codegen_block(
     base_addr: u16,
     insts: &[Result<Instruction, Vec<u8>>],
     bus: &ExternalBus,
-    options: &super::CompileOptions,
+    oneoffs: &OneoffTable,
+    options: &CompileOptions,
 ) -> Result<(ExecutableBuffer, AssemblyOffset, Vec<AssemblyOffset>), CompileError> {
     let mut ops = Assembler::new()?;
 
@@ -56,18 +57,23 @@ pub fn codegen_block(
         .enumerate()
         .map(|(idx, (inst, label))| {
             let pc = base_addr.wrapping_add(idx as u16);
-            assemble_instruction(
-                &mut ops,
-                inst.as_ref().unwrap(), // TODO fixme
-                label,
-                AssemblyKind::Static {
-                    base_addr,
-                    pc,
-                    labels: &labels,
-                },
-                bus,
-                options.trace_pc,
-            )
+            match inst {
+                Ok(i) => assemble_instruction(
+                    &mut ops,
+                    i,
+                    label,
+                    AssemblyKind::Static {
+                        base_addr,
+                        pc,
+                        labels: &labels,
+                    },
+                    bus,
+                    options.trace_pc,
+                ),
+                Err(bytes) => {
+                    assemble_incomplete(&mut ops, bytes.as_slice(), label, pc, bus, oneoffs)
+                }
+            }
         })
         .collect();
 
@@ -86,30 +92,29 @@ pub fn codegen_block(
 pub fn codegen_oneoffs(
     insts: &[Instruction],
     bus: &ExternalBus,
-    options: &super::CompileOptions,
+    options: &CompileOptions,
 ) -> Result<(ExecutableBuffer, AssemblyOffset), CompileError> {
     let mut ops = Assembler::new()?;
 
     let labels: Vec<DynamicLabel> = insts.iter().map(|_| ops.new_dynamic_label()).collect();
 
-    let offsets = insts
-        .iter()
-        .zip(labels.iter())
-        .map(|(inst, label)| {
-            assemble_instruction(
-                &mut ops,
-                inst,
-                label,
-                AssemblyKind::Oneoff,
-                bus,
-                options.trace_pc,
-            )
-        })
-        .collect();
+    insts.iter().zip(labels.iter()).for_each(|(inst, label)| {
+        assemble_instruction(
+            &mut ops,
+            inst,
+            label,
+            AssemblyKind::Oneoff,
+            bus,
+            options.trace_pc,
+        );
+    });
 
-    generate_offset_table(ops, labels);
+    generate_offset_table(&mut ops, labels.as_slice());
 
-    let table_offset = ops.labels().resolve_global("jump_table");
+    let table_offset = ops
+        .labels()
+        .resolve_global("jump_table")
+        .expect("jump_table should exist");
 
     ops.commit()
         .expect("No assembly errors should have occurred");
@@ -271,14 +276,74 @@ fn assemble_instruction<'a>(
             pc,
             labels,
         } => generate_epilogue(ops, &epilogue_desc, inst, labels, pc, base_addr),
-        AssemblyKind::Oneoff => {
+        AssemblyKind::Oneoff => generate_oneoff_epilogue(ops, &epilogue_desc, inst),
+    }
+
+    offset
+}
+
+fn assemble_incomplete(
+    ops: &mut Assembler,
+    bytes: &[u8],
+    label: &DynamicLabel,
+    pc: u16,
+    bus: &ExternalBus,
+    oneoffs: &OneoffTable,
+) -> AssemblyOffset {
+    let offset = ops.offset();
+    dynasm!(ops
+        ; => *label
+    );
+
+    let req = decoder::bytes_required(bytes[0]);
+    dynasm!(ops
+        ; mov WORD [rsp + 0x00], WORD 0
+    );
+
+    if req >= 2 {
+        if bytes.len() >= 2 {
             dynasm!(ops
-                ; mov r8, [rsp + 0x18]
-                ; push r8
-                ; ret
+                ; mov BYTE [rsp + 0x00], BYTE bytes[1] as _
+            );
+        } else {
+            dynasm!(ops
+                ; mov di, WORD pc.wrapping_add(1) as _
+                ;; call_read(ops, bus)
+                ; mov [rsp + 0x00], ah
             );
         }
     }
+
+    if req >= 3 {
+        if bytes.len() >= 3 {
+            dynasm!(ops
+                ; mov BYTE [rsp + 0x01], BYTE bytes[2] as _
+            );
+        } else {
+            dynasm!(ops
+                ; mov di, WORD pc.wrapping_add(2) as _
+                ;; call_read(ops, bus)
+                ; mov [rsp + 0x01], ah
+            );
+        }
+    }
+
+    // The index is now in [rsp]
+
+    let table = oneoffs.get_table(bytes[0]);
+
+    dynasm!(ops
+        ; mov rdi, 0
+        ; mov di, [rsp + 0x00]
+        ; shl rdi, 3
+        ; mov r8, QWORD table.table() as _
+        ; mov r9, QWORD table.base() as _
+        ; add rdi, r8
+        ; mov rsi, [r8]
+        ; add rsi, r9
+        ; call rsi
+        ; jmp -> jump
+    );
 
     offset
 }
@@ -331,6 +396,55 @@ fn generate_epilogue(
                     pc.wrapping_add(inst.size()),
                     base_addr,
                     labels,
+                );
+            }
+        }
+    }
+}
+
+fn generate_oneoff_epilogue(ops: &mut Assembler, desc: &EpilogueDescription, inst: &Instruction) {
+    let epilogue = |ops: &mut Assembler| {
+        dynasm!(ops
+            ; add r14, DWORD inst.cycles as _
+            ; mov r8, [rsp + 0x18]
+            ; push r8
+            ; ret
+        );
+    };
+    match desc {
+        EpilogueDescription::Default => {
+            dynasm!(ops
+                ; add r13w, WORD inst.size() as _
+                ;; epilogue(ops)
+            );
+        }
+        EpilogueDescription::Jump { target, skip_label } => {
+            match target {
+                JumpDescription::Static(target_pc) => {
+                    dynasm!(ops
+                        ; add r13w, WORD *target_pc as _
+                        ;; epilogue(ops)
+                    );
+                }
+                JumpDescription::Relative(offset) => {
+                    let offset = inst.size().wrapping_add(*offset as u16);
+                    dynasm!(ops
+                        ; add r13w, WORD offset as _
+                        ;; epilogue(ops)
+                    );
+                }
+                JumpDescription::Dynamic => {
+                    dynasm!(ops
+                        ; mov r13w, di
+                        ;; epilogue(ops)
+                    );
+                }
+            }
+            if let Some(label) = skip_label {
+                dynasm!(ops
+                    ; => *label
+                    ; add r13w, WORD inst.size() as _
+                    ;; epilogue(ops)
                 );
             }
         }

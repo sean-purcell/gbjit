@@ -7,12 +7,15 @@ pub mod codegen;
 pub mod decoder;
 mod external_bus;
 pub mod instruction;
+mod oneoff_table;
 
 pub use code_block::CodeBlock;
 
 pub use external_bus::Generic as ExternalBus;
 
 pub use instruction::Instruction;
+
+pub use oneoff_table::OneoffTable;
 
 #[derive(Debug)]
 pub enum CompileError {
@@ -55,6 +58,7 @@ pub fn compile<T>(
     base_addr: u16,
     bytes: &[u8],
     bus: ExternalBus<T>,
+    oneoffs: &OneoffTable,
     options: &CompileOptions,
 ) -> Result<CodeBlock<T>, CompileError> {
     let none_if_empty: for<'a> fn(&'a [u8]) -> Option<&'a [u8]> =
@@ -66,15 +70,16 @@ pub fn compile<T>(
                 if req > bytes.len() {
                     Err(bytes.to_vec())
                 } else {
-                    Ok(decoder::decode(bytes).expect("Byte count should be correct"))
+                    Ok(decoder::decode(&bytes[0..req]).expect("Byte count should be correct"))
                 }
             })
             .collect();
 
-    let (buf, entry, offsets) = codegen::codegen(
+    let (buf, entry, offsets) = codegen::codegen_block(
         base_addr,
         instructions.as_slice(),
         &bus.type_erased(),
+        oneoffs,
         options,
     )?;
 

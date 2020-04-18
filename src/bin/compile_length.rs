@@ -4,9 +4,9 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 use std::mem;
 
-use gbjit::compiler::{codegen, decoder, CompileOptions, ExternalBus, Instruction};
+use gbjit::compiler::{codegen, decoder, CompileOptions, ExternalBus, Instruction, OneoffTable};
 
-pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() {
     let insts: HashSet<Instruction> = (0u32..(1 << 24))
         .map(|idx| {
             let bytes = idx.to_le_bytes();
@@ -29,6 +29,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let options = CompileOptions { trace_pc: false };
 
+    let oneoffs = OneoffTable::generate_raw(&bus, &options).unwrap();
+
     let blocks: Vec<(Vec<Instruction>, Vec<usize>)> = insts
         .chunks(32768)
         .map(|chunk| {
@@ -38,12 +40,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let result_chunk: Vec<_> = chunk.iter().cloned().map(|x| Ok(x)).collect();
 
-            let offsets = codegen::codegen(0, result_chunk.as_slice(), &bus, &options)
-                .unwrap()
-                .2
-                .iter()
-                .map(|x| x.0)
-                .collect();
+            let offsets =
+                codegen::codegen_block(0, result_chunk.as_slice(), &bus, &oneoffs, &options)
+                    .unwrap()
+                    .2
+                    .iter()
+                    .map(|x| x.0)
+                    .collect();
             chunk.pop();
             (chunk, offsets)
         })
@@ -66,6 +69,4 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Shorters instruction: {:?}", min);
     println!("Longest instruction: {:?}", max);
-
-    Ok(())
 }

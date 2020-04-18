@@ -20,7 +20,7 @@ struct Page {
 impl Ram {
     pub fn new(base_addr: u16, size: u16, page_size: u16) -> Ram {
         let rem = size
-            .checked_div(page_size)
+            .checked_rem(page_size)
             .expect("Page size should not be 0");
         assert!(rem == 0, "Page size should be a divisor of size");
         let pages = (0..size)

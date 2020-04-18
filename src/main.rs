@@ -54,18 +54,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut devices = devices::Devices::new(&args.bios, &args.rom)?;
     let data = fs::read(args.bios)?;
 
-    let block = compiler::compile(
-        0,
-        data.as_slice(),
-        compiler::ExternalBus {
-            read: devices::Devices::read,
-            write: devices::Devices::write,
-            interrupts: devices::Devices::interrupts,
-        },
-        &compiler::CompileOptions {
-            trace_pc: args.trace_pc,
-        },
-    )?;
+    let bus = compiler::ExternalBus {
+        read: devices::Devices::read,
+        write: devices::Devices::write,
+        interrupts: devices::Devices::interrupts,
+    };
+
+    let options = compiler::CompileOptions {
+        trace_pc: args.trace_pc,
+    };
+    let oneoffs = compiler::OneoffTable::generate(&bus, &options).unwrap();
+
+    let block = compiler::compile(0, data.as_slice(), bus, &oneoffs, &options)?;
 
     if args.disassemble {
         print_disassembly(&block, args.full_disassembly);

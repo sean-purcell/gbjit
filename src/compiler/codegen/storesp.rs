@@ -11,7 +11,7 @@ pub(super) fn generate(
         ; mov di, WORD addr as _
         ; mov sil, r12b
         ;; call_write(ops, bus)
-        ; mov di, WORD (addr + 1) as _
+        ; mov di, WORD addr.wrapping_add(1) as _
         ; mov si, r12w
         ; shr si, 8
         ;; call_write(ops, bus)
