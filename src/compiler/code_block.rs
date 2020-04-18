@@ -17,7 +17,7 @@ pub struct CodeBlock<T> {
     buf: ExecutableBuffer,
     entry: extern "sysv64" fn(*mut CpuState, target_pc: u64, param: *mut c_void),
     offsets: Vec<AssemblyOffset>,
-    instructions: Vec<Instruction>,
+    instructions: Vec<Result<Instruction, Vec<u8>>>,
     bus: ExternalBus<T>,
 }
 
@@ -27,7 +27,7 @@ impl<T> CodeBlock<T> {
         buf: ExecutableBuffer,
         entry: AssemblyOffset,
         offsets: Vec<AssemblyOffset>,
-        instructions: Vec<Instruction>,
+        instructions: Vec<Result<Instruction, Vec<u8>>>,
         bus: ExternalBus<T>,
     ) -> Self {
         let entry = unsafe { mem::transmute(buf.ptr(entry)) };
@@ -41,7 +41,7 @@ impl<T> CodeBlock<T> {
         }
     }
 
-    pub fn instructions(&self) -> &[Instruction] {
+    pub fn instructions(&self) -> &[Result<Instruction, Vec<u8>>] {
         self.instructions.as_slice()
     }
 
@@ -82,7 +82,7 @@ impl<T> CodeBlock<T> {
             SrcInstruction {
                 src_pc: u16,
                 host_pc: u64,
-                inst: &'a Instruction,
+                inst: &'a Result<Instruction, Vec<u8>>,
             },
             HostInstruction {
                 host_pc: u64,
@@ -112,7 +112,13 @@ impl<T> CodeBlock<T> {
                         src_pc,
                         host_pc: _,
                         inst,
-                    } => write!(f, "{:#06x?}: {:?}", src_pc, inst.cmd),
+                    } => {
+                        write!(f, "{:#06x?}: ", src_pc)?;
+                        match inst {
+                            Ok(i) => write!(f, "{:?}", i.cmd),
+                            Err(bytes) => write!(f, "{:02x?}", bytes),
+                        }
+                    }
                     HostInstruction { host_pc: _, repr } => write!(f, "{}", repr),
                 }
             }

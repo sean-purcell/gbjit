@@ -38,9 +38,9 @@ mod storesp;
 
 use util::{pop_state, push_state, repack_cpu_state, unpack_cpu_state};
 
-pub fn codegen(
+pub fn codegen_block(
     base_addr: u16,
-    insts: &[Instruction],
+    insts: &[Result<Instruction, Vec<u8>>],
     bus: &ExternalBus,
     options: &super::CompileOptions,
 ) -> Result<(ExecutableBuffer, AssemblyOffset, Vec<AssemblyOffset>), CompileError> {
@@ -48,19 +48,23 @@ pub fn codegen(
 
     let entry = generate_boilerplate(&mut ops);
 
-    let len = insts.len() as u16;
-    let labels: Vec<DynamicLabel> = (base_addr..base_addr + len)
-        .map(|_| ops.new_dynamic_label())
-        .collect();
+    let labels: Vec<DynamicLabel> = insts.iter().map(|_| ops.new_dynamic_label()).collect();
 
-    let offsets = (base_addr..base_addr + len)
-        .map(|pc| {
+    let offsets = insts
+        .iter()
+        .zip(labels.iter())
+        .enumerate()
+        .map(|(idx, (inst, label))| {
+            let pc = base_addr.wrapping_add(idx as u16);
             assemble_instruction(
                 &mut ops,
-                &insts[pc as usize],
-                labels.as_slice(),
-                pc,
-                base_addr,
+                inst.as_ref().unwrap(), // TODO fixme
+                label,
+                AssemblyKind::Static {
+                    base_addr,
+                    pc,
+                    labels: &labels,
+                },
                 bus,
                 options.trace_pc,
             )
@@ -77,6 +81,42 @@ pub fn codegen(
     let buf = ops.finalize().expect("No executor instances created");
 
     Ok((buf, entry, offsets))
+}
+
+pub fn codegen_oneoffs(
+    insts: &[Instruction],
+    bus: &ExternalBus,
+    options: &super::CompileOptions,
+) -> Result<(ExecutableBuffer, AssemblyOffset), CompileError> {
+    let mut ops = Assembler::new()?;
+
+    let labels: Vec<DynamicLabel> = insts.iter().map(|_| ops.new_dynamic_label()).collect();
+
+    let offsets = insts
+        .iter()
+        .zip(labels.iter())
+        .map(|(inst, label)| {
+            assemble_instruction(
+                &mut ops,
+                inst,
+                label,
+                AssemblyKind::Oneoff,
+                bus,
+                options.trace_pc,
+            )
+        })
+        .collect();
+
+    generate_offset_table(ops, labels);
+
+    let table_offset = ops.labels().resolve_global("jump_table");
+
+    ops.commit()
+        .expect("No assembly errors should have occurred");
+
+    let buf = ops.finalize().expect("No executor instances created");
+
+    Ok((buf, table_offset))
 }
 
 fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
@@ -139,19 +179,41 @@ impl Default for EpilogueDescription {
     }
 }
 
-fn assemble_instruction(
+enum AssemblyKind<'a> {
+    Static {
+        base_addr: u16,
+        pc: u16,
+        labels: &'a [DynamicLabel],
+    },
+    Oneoff,
+}
+
+fn assemble_instruction<'a>(
     ops: &mut Assembler,
     inst: &Instruction,
-    labels: &[DynamicLabel],
-    pc: u16,
-    base_addr: u16,
+    label: &DynamicLabel,
+    kind: AssemblyKind<'a>,
     bus: &ExternalBus,
     trace_pc: bool,
 ) -> AssemblyOffset {
     let offset = ops.offset();
     dynasm!(ops
-        ; => labels[(pc-base_addr) as usize]
+        ; => *label
     );
+
+    match kind {
+        AssemblyKind::Static {
+            base_addr: _,
+            pc: _,
+            labels: _,
+        } => (),
+        AssemblyKind::Oneoff => {
+            dynasm!(ops
+                ; pop r8
+                ; mov [rsp + 0x18], r8
+            );
+        }
+    }
 
     if trace_pc {
         dynasm!(ops
@@ -203,7 +265,20 @@ fn assemble_instruction(
 
     let epilogue_desc = generator(ops, inst, bus);
 
-    generate_epilogue(ops, &epilogue_desc, inst, labels, pc, base_addr);
+    match kind {
+        AssemblyKind::Static {
+            base_addr,
+            pc,
+            labels,
+        } => generate_epilogue(ops, &epilogue_desc, inst, labels, pc, base_addr),
+        AssemblyKind::Oneoff => {
+            dynasm!(ops
+                ; mov r8, [rsp + 0x18]
+                ; push r8
+                ; ret
+            );
+        }
+    }
 
     offset
 }
@@ -295,13 +370,20 @@ fn generate_dynamic_jump_table(ops: &mut Assembler, base_addr: u16, labels: &[Dy
         ; jae ->exit
         ; and rdi, DWORD 0xffff as _
         ; shl rdi, 3
-        ; lea r8, [>jump_table]
+        ; lea r8, [->jump_table]
         ; add r8, rdi
         ; mov rsi, [r8]
         ; lea r9, [->block_start]
         ; add rsi, r9
         ; jmp rsi
-        ; jump_table:
+    );
+
+    generate_offset_table(ops, labels);
+}
+
+fn generate_offset_table(ops: &mut Assembler, labels: &[DynamicLabel]) {
+    dynasm!(ops
+        ; ->jump_table:
     );
 
     let offsets: Vec<AssemblyOffset> = {

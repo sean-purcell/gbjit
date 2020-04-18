@@ -1,6 +1,4 @@
-use std::convert::TryInto;
-use std::fmt;
-use std::io;
+use std::{fmt, io, iter};
 
 use dynasmrt::DynasmError;
 
@@ -55,16 +53,23 @@ impl Default for CompileOptions {
 
 pub fn compile<T>(
     base_addr: u16,
-    len: u16,
-    read: impl Fn(u16) -> Option<u8>,
+    bytes: &[u8],
     bus: ExternalBus<T>,
     options: &CompileOptions,
 ) -> Result<CodeBlock<T>, CompileError> {
-    let padded: Box<[u8]> = (0..len + 2).map(read).map(|x| x.unwrap_or(0)).collect();
-    let instructions: Vec<Instruction> = padded
-        .windows(3)
-        .map(|bytes| decoder::decode_full(bytes.try_into().unwrap()))
-        .collect();
+    let none_if_empty: for<'a> fn(&'a [u8]) -> Option<&'a [u8]> =
+        |b: &[u8]| if b.is_empty() { None } else { Some(b) };
+    let instructions: Vec<Result<Instruction, Vec<u8>>> =
+        iter::successors(none_if_empty(bytes), |prev| none_if_empty(&prev[1..]))
+            .map(|bytes| {
+                let req = decoder::bytes_required(bytes[0]) as usize;
+                if req > bytes.len() {
+                    Err(bytes.to_vec())
+                } else {
+                    Ok(decoder::decode(bytes).expect("Byte count should be correct"))
+                }
+            })
+            .collect();
 
     let (buf, entry, offsets) = codegen::codegen(
         base_addr,

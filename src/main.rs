@@ -56,8 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let block = compiler::compile(
         0,
-        data.len() as u16,
-        |x| data.get(x as usize).copied(),
+        data.as_slice(),
         compiler::ExternalBus {
             read: devices::Devices::read,
             write: devices::Devices::write,
@@ -97,8 +96,15 @@ fn print_disassembly<T>(block: &compiler::CodeBlock<T>, full: bool) {
         if full {
             println!("{:#05x}: {:?}", idx, i);
         } else {
-            println!("{:#05x}: {:?}", idx, i.cmd);
+            println!("{:#05x?}: ", idx);
+            match i {
+                Ok(i) => println!("{:?}", i.cmd),
+                Err(bytes) => println!("{:02x?}", bytes),
+            }
         }
-        idx += i.size() as usize;
+        idx += match i {
+            Ok(i) => i.size() as usize,
+            Err(bytes) => bytes.len(),
+        };
     }
 }

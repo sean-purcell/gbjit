@@ -36,7 +36,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             // add one more at the end to compare offsets against
             chunk.push(Instruction::invalid(0));
 
-            let offsets = codegen::codegen(0, chunk.as_slice(), &bus, &options)
+            let result_chunk: Vec<_> = chunk.iter().cloned().map(|x| Ok(x)).collect();
+
+            let offsets = codegen::codegen(0, result_chunk.as_slice(), &bus, &options)
                 .unwrap()
                 .2
                 .iter()

@@ -46,6 +46,7 @@ pub fn decode(bytes: &[u8]) -> Result<Instruction, DecodeError> {
     }
 }
 
+#[allow(dead_code)]
 pub fn decode_full(bytes: [u8; 3]) -> Instruction {
     let req = bytes_required(bytes[0]) as usize;
     decode(&bytes[0..req]).expect("Impossible error, correct number of bytes given")
