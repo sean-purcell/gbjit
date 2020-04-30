@@ -13,7 +13,9 @@ use structopt::StructOpt;
 
 mod compiler;
 mod cpu_state;
-mod devices;
+mod gb;
+
+use gb::bus::Bus;
 
 #[derive(StructOpt)]
 #[structopt(name = "gbjit")]
@@ -51,13 +53,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::from_args();
 
-    let mut devices = devices::Devices::new(&args.bios, &args.rom)?;
+    let mut gb_bus = Bus::new(&args.bios, &args.rom)?;
     let data = fs::read(args.bios)?;
 
     let bus = compiler::ExternalBus {
-        read: devices::Devices::read,
-        write: devices::Devices::write,
-        interrupts: devices::Devices::interrupts,
+        read: Bus::read,
+        write: Bus::write,
+        interrupts: Bus::interrupts,
     };
 
     let options = compiler::CompileOptions {
@@ -81,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut cpu_state = cpu_state::CpuState::new();
 
-    block.enter(&mut cpu_state, &mut devices);
+    block.enter(&mut cpu_state, &mut gb_bus);
 
     println!("{:?}", cpu_state);
 

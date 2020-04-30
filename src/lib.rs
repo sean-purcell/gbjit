@@ -2,4 +2,4 @@
 
 pub mod compiler;
 pub mod cpu_state;
-pub mod devices;
+pub mod gb;

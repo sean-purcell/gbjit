@@ -20,7 +20,7 @@ pub use kind::Kind;
 pub use page::{Page, PageId};
 pub use ram::Ram;
 
-pub struct Devices {
+pub struct Bus {
     bios: Bios,
     cart: Cartridge,
 
@@ -29,12 +29,12 @@ pub struct Devices {
     bios_enabled: bool,
 }
 
-impl Devices {
+impl Bus {
     pub fn new<P: AsRef<Path>, R: AsRef<Path>>(
         bios_path: P,
         cartridge_path: R,
     ) -> Result<Self, Error> {
-        Ok(Devices {
+        Ok(Bus {
             bios: Bios::new(bios_path)?,
             cart: Cartridge::new(cartridge_path)?,
             ram: Ram::new(0x8000, 0x8000, 0x100),
