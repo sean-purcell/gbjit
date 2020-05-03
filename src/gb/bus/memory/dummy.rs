@@ -4,6 +4,12 @@ use log::*;
 
 pub struct Dummy([u8; 65536]);
 
+impl Default for Dummy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Dummy {
     pub fn new() -> Self {
         Dummy([0; 65536])
