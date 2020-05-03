@@ -1,4 +1,5 @@
 use dynasmrt::{AssemblyOffset, ExecutableBuffer};
+use rayon::prelude::*;
 
 use super::external_bus::{Generic, TypeErased};
 use super::{codegen, decoder, CompileError, CompileOptions};
@@ -38,7 +39,8 @@ impl SingleTable {
 
 impl OneoffTable {
     pub fn generate_raw(bus: &TypeErased, options: &CompileOptions) -> Result<Self, CompileError> {
-        let tables = (0..=255)
+        let tables = (0u8..=255u8)
+            .into_par_iter()
             .map(|byte| SingleTable::generate(byte, bus, options))
             .collect::<Result<Vec<SingleTable>, CompileError>>()?;
 
