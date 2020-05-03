@@ -38,7 +38,7 @@ pub fn main() {
             // add one more at the end to compare offsets against
             chunk.push(Instruction::invalid(0));
 
-            let result_chunk: Vec<_> = chunk.iter().cloned().map(|x| Ok(x)).collect();
+            let result_chunk: Vec<_> = chunk.iter().cloned().map(Ok).collect();
 
             let offsets =
                 codegen::codegen_block(0, result_chunk.as_slice(), &bus, &oneoffs, &options)
