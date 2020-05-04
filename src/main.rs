@@ -62,6 +62,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         interrupts: Bus::interrupts,
     };
 
+    let cycle_state = compiler::CycleState::new();
+    cycle_state.set_hard_limit(102);
+    cycle_state.set_interrupt_limit(50);
+
     let options = compiler::CompileOptions {
         trace_pc: args.trace_pc,
     };
@@ -83,9 +87,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut cpu_state = cpu_state::CpuState::new();
 
-    block.enter(&mut cpu_state, &mut gb_bus);
+    block.enter(&mut cpu_state, &mut gb_bus, &cycle_state);
 
     println!("{:?}", cpu_state);
+    println!("{:?}", cycle_state);
 
     Ok(())
 }

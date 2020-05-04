@@ -18,27 +18,35 @@ macro_rules! parse_cmd {
 
 pub fn unpack_cpu_state(ops: &mut Assembler) {
     dynasm!(ops
-        ; mov r14, [rdi + 0x00] // cycles
-        ; mov r12w, [rdi + 0x08] // sp
-        ; mov r13w, [rdi + 0x0a] // pc
-        ; mov ax, [rdi + 0x0c] // af
+        ; mov r12w, [rdi + 0x00] // sp
+        ; mov r13w, [rdi + 0x02] // pc
+        ; mov ax, [rdi + 0x04] // af
         ; mov [rsp + 0x02], ah // f
-        ; mov bx, [rdi + 0x0e] // bc
-        ; mov cx, [rdi + 0x10] // de
-        ; mov dx, [rdi + 0x12] // hl
+        ; mov bx, [rdi + 0x06] // bc
+        ; mov cx, [rdi + 0x08] // de
+        ; mov dx, [rdi + 0x0a] // hl
+        ; mov r11b, [rdi + 0x0c] // intenable
     );
 }
 
 pub fn repack_cpu_state(ops: &mut Assembler) {
     dynasm!(ops
-        ; mov [rdi + 0x00], r14 // cycles
-        ; mov [rdi + 0x08], r12w // sp
-        ; mov [rdi + 0x0a], r13w // pc
+        ; mov [rdi + 0x00], r12w // sp
+        ; mov [rdi + 0x02], r13w // pc
         ; mov ah, [rsp + 0x02] // f
-        ; mov [rdi + 0x0c], ax // af
-        ; mov [rdi + 0x0e], bx // bc
-        ; mov [rdi + 0x10], cx // de
-        ; mov [rdi + 0x12], dx // hl
+        ; mov [rdi + 0x04], ax // af
+        ; mov [rdi + 0x06], bx // bc
+        ; mov [rdi + 0x08], cx // de
+        ; mov [rdi + 0x0a], dx // hl
+        ; mov [rdi + 0x0c], r11b // intenable
+    );
+}
+
+pub fn setup_limit_address(ops: &mut Assembler) {
+    dynasm!(ops
+        ; test r11b, r11b
+        ; cmovz r15, [rsp + 0x20]
+        ; cmovnz r15, [rsp + 0x28]
     );
 }
 

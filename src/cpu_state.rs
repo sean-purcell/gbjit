@@ -1,7 +1,6 @@
 #[derive(Debug, Clone, Default)]
 #[repr(C)]
 pub struct CpuState {
-    pub cycles: u64,
     pub sp: u16,
     pub pc: u16,
     pub af: u16,

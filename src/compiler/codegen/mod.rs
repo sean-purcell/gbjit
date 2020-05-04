@@ -36,7 +36,9 @@ mod ret;
 mod rst;
 mod storesp;
 
-use util::{call_read, pop_state, push_state, repack_cpu_state, unpack_cpu_state};
+use util::{
+    call_read, pop_state, push_state, repack_cpu_state, setup_limit_address, unpack_cpu_state,
+};
 
 pub fn codegen_block(
     base_addr: u16,
@@ -134,16 +136,17 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
         ; mov [rsp - 0x10], r13
         ; mov [rsp - 0x18], r14
         ; mov [rsp - 0x20], r15
-        ; sub rsp, 0x40
-        ; mov rbp, rdx
+        ; sub rsp, 0x50
+        ; mov rbp, rsi
+        ;; setup_cycle_registers(ops)
         ;; unpack_cpu_state(ops)
+        ;; setup_limit_address(ops)
         ; mov [rsp + 0x08], rdi
-        ; mov [rsp + 0x10], rdx
-        ; jmp rsi
+        ; jmp -> jump
         ; -> exit:
         ; mov rdi, [rsp + 0x08]
         ;; repack_cpu_state(ops)
-        ; add rsp, 0x40
+        ; add rsp, 0x50
         ; mov r12, [rsp - 0x08]
         ; mov r13, [rsp - 0x10]
         ; mov r14, [rsp - 0x18]
@@ -154,9 +157,19 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
     offset
 }
 
+fn setup_cycle_registers(ops: &mut Assembler) {
+    dynasm!(ops
+        ; mov r14, [rdx + 0x00]
+        ; mov r8, [rdx + 0x08]
+        ; mov [rsp + 0x20], r8
+        ; mov r8, [rdx + 0x10]
+        ; mov [rsp + 0x28], r8
+    );
+}
+
 fn generate_overrun(ops: &mut Assembler) {
     dynasm!(ops
-        ; jmp ->exit
+        ; jmp -> exit
     )
 }
 
@@ -224,6 +237,8 @@ fn assemble_instruction<'a>(
         dynasm!(ops
             ;; push_state(ops)
             ; mov rdi, [rsp + 0x08]
+            ; mov rsi, inst.encoding[0] as _
+            ; mov rdx, [r14]
             ;; repack_cpu_state(ops)
             ; mov rax, QWORD log_state as _
             ; call rax
@@ -342,6 +357,7 @@ fn assemble_incomplete(
         ; mov rsi, [r8]
         ; add rsi, r9
         ; call rsi
+        ;; check_cycle_limit(ops)
         ; jmp -> jump
     );
 
@@ -405,7 +421,7 @@ fn generate_epilogue(
 fn generate_oneoff_epilogue(ops: &mut Assembler, desc: &EpilogueDescription, inst: &Instruction) {
     let epilogue = |ops: &mut Assembler| {
         dynasm!(ops
-            ; add r14, DWORD inst.cycles as _
+            ; add QWORD [r14], DWORD inst.cycles as _
             ; mov r8, [rsp + 0x18]
             ; push r8
             ; ret
@@ -461,7 +477,8 @@ fn generate_static_jump_epilogue(
 ) {
     dynasm!(ops
         ; mov r13w, WORD target_pc as _
-        ; add r14, DWORD cycles as _
+        ; add QWORD [r14], DWORD cycles as _
+        ;; check_cycle_limit(ops)
     );
     if target_pc != pc.wrapping_add(1) {
         util::direct_jump(ops, target_pc, labels, base_addr);
@@ -471,23 +488,25 @@ fn generate_static_jump_epilogue(
 fn generate_dynamic_jump_epilogue(ops: &mut Assembler, cycles: u8) {
     dynasm!(ops
         ; mov r13w, di
-        ; add r14, DWORD cycles as _
-        ; jmp ->jump
+        ; add QWORD [r14], DWORD cycles as _
+        ;; check_cycle_limit(ops)
+        ; jmp -> jump
     );
 }
 
 fn generate_dynamic_jump_table(ops: &mut Assembler, base_addr: u16, labels: &[DynamicLabel]) {
     dynasm!(ops
         ; -> jump:
+        ; mov di, r13w
         ; sub di, WORD base_addr as _
         ; cmp di, WORD labels.len() as _
-        ; jae ->exit
+        ; jae -> exit
         ; and rdi, DWORD 0xffff as _
         ; shl rdi, 3
-        ; lea r8, [->jump_table]
+        ; lea r8, [-> jump_table]
         ; add r8, rdi
         ; mov rsi, [r8]
-        ; lea r9, [->block_start]
+        ; lea r9, [-> block_start]
         ; add rsi, r9
         ; jmp rsi
     );
@@ -497,7 +516,7 @@ fn generate_dynamic_jump_table(ops: &mut Assembler, base_addr: u16, labels: &[Dy
 
 fn generate_offset_table(ops: &mut Assembler, labels: &[DynamicLabel]) {
     dynasm!(ops
-        ; ->jump_table:
+        ; -> jump_table:
     );
 
     let offsets: Vec<AssemblyOffset> = {
@@ -513,6 +532,14 @@ fn generate_offset_table(ops: &mut Assembler, labels: &[DynamicLabel]) {
             ; .qword offset.0 as _
         );
     }
+}
+
+fn check_cycle_limit(ops: &mut Assembler) {
+    dynasm!(ops
+        ; mov r8, [r15]
+        ; cmp [r14], r8
+        ; jge -> exit
+    );
 }
 
 fn generate_invalid(
@@ -539,8 +566,14 @@ extern "sysv64" fn log_invalid(pc: u16, opcode: u8) {
     );
 }
 
-extern "sysv64" fn log_state(state: *const c_void) {
+extern "sysv64" fn log_state(state: *const c_void, opcode: u8, cycle: u64) {
     let state: &CpuState = unsafe { &*(state as *const CpuState) };
     let pc = state.pc;
-    trace!("Executing instruction at {:#06x?}, state: {:?}", pc, state);
+    trace!(
+        "Executing instruction {:#04x?} at {:#06x?}, state: {:?}, cycle: {:?}",
+        opcode,
+        pc,
+        state,
+        cycle
+    );
 }

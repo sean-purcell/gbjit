@@ -4,12 +4,15 @@ use dynasmrt::DynasmError;
 
 mod code_block;
 pub mod codegen;
+mod cycle_state;
 pub mod decoder;
 mod external_bus;
 pub mod instruction;
 mod oneoff_table;
 
 pub use code_block::CodeBlock;
+
+pub use cycle_state::CycleState;
 
 pub use external_bus::Generic as ExternalBus;
 
