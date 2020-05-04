@@ -2,5 +2,10 @@
 pub enum Kind {
     Bios,
     Cartridge,
-    Ram,
+    Vram,
+    Cram,
+    Wram,
+    Oam,
+    Io,
+    Hram,
 }

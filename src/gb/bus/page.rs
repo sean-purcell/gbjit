@@ -2,17 +2,13 @@ use super::Kind;
 
 pub type PageId = (Kind, u64);
 
-pub trait Page {
-    fn base_addr(&self) -> u16;
-    fn size(&self) -> u16;
+pub struct PageStatus {
+    /// This is used as the key in the compilation cache, it should stay constant for a region
+    pub id: PageId,
+    /// This should change every time the data in this page changes and the page needs to be
+    /// recompiled
+    pub version: u64,
 
-    fn id(&self) -> PageId;
-    /// This should change every time the data inside changes
-    fn version(&self) -> u64;
-
-    fn read(&mut self, addr: u16) -> u8;
-    fn write(&mut self, addr: u16, val: u8);
-
-    // TODO: default implementation?
-    fn read_all(&mut self) -> &[u8];
+    /// This should be passed as the parameter to the Device's read_page function
+    pub fetch_key: usize,
 }

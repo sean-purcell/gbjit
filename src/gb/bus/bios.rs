@@ -2,8 +2,7 @@ use std::path::Path;
 
 use log::*;
 
-use super::memory::Rom;
-use super::{Device, Error, Kind, Page, PageId};
+use super::{Error, Kind, Module, PageStatus, Rom};
 
 pub struct Bios(Rom);
 
@@ -13,35 +12,13 @@ impl Bios {
     }
 }
 
-impl Device for Bios {
+impl Module for Bios {
     fn base_addr(&self) -> u16 {
         0
     }
 
     fn size(&self) -> u16 {
         256
-    }
-
-    fn map(&mut self, _addr: u16) -> &mut dyn Page {
-        self
-    }
-}
-
-impl Page for Bios {
-    fn base_addr(&self) -> u16 {
-        Device::base_addr(self)
-    }
-
-    fn size(&self) -> u16 {
-        Device::size(self)
-    }
-
-    fn id(&self) -> PageId {
-        (Kind::Bios, 0)
-    }
-
-    fn version(&self) -> u64 {
-        0
     }
 
     fn read(&mut self, addr: u16) -> u8 {
@@ -52,7 +29,17 @@ impl Page for Bios {
         warn!("Attempted to write to BIOS {:#06x?} <- {:02x?}", addr, val);
     }
 
-    fn read_all(&mut self) -> &[u8] {
+    fn map_page(&mut self, _addr: u16) -> PageStatus {
+        PageStatus {
+            id: (Kind::Bios, 0),
+            version: 0,
+            base_addr: 0,
+            size: 256,
+            fetch_key: 0,
+        }
+    }
+
+    fn read_page(&mut self, _fetch_key: u64) -> &[u8] {
         &*self.0
     }
 }
