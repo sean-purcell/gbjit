@@ -103,16 +103,6 @@ pub fn call_write(ops: &mut Assembler, bus: &ExternalBus) {
     );
 }
 
-pub fn call_interrupts(ops: &mut Assembler, bus: &ExternalBus) {
-    dynasm!(ops
-        ;; push_state(ops)
-        ; mov rsi, rbp
-        ; mov rax, QWORD bus.write as _
-        ; call rax
-        ;; pop_state(ops)
-    );
-}
-
 pub fn load_halfreg(ops: &mut Assembler, r: HalfReg) {
     macro_rules! ld {
         ($ops:expr, $r:tt) => {

@@ -86,19 +86,13 @@ impl Bus {
         }
     }
 
-    pub fn read(&mut self, addr: u16) -> (u8, bool) {
+    pub fn read(&mut self, addr: u16) -> u8 {
         let val = self.map_device(addr).map_or(0xff, |page| page.read(addr));
-        (val, false)
+        val
     }
 
-    pub fn write(&mut self, addr: u16, val: u8) -> bool {
+    pub fn write(&mut self, addr: u16, val: u8) {
         self.map_device(addr)
             .map_or((), |page| page.write(addr, val));
-        false
-    }
-
-    pub fn interrupts(&mut self, enabled: bool) -> bool {
-        debug!("Interrupts enabled: {}", enabled);
-        false
     }
 }

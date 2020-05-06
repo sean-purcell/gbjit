@@ -59,7 +59,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bus = compiler::ExternalBus {
         read: Bus::read,
         write: Bus::write,
-        interrupts: Bus::interrupts,
     };
 
     let cycle_state = compiler::CycleState::new();
