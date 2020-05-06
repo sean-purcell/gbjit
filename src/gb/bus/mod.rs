@@ -55,7 +55,7 @@ impl Bus {
             cram: Ram::new(Kind::Cram, 0xA000, 0x2000, 0x100),
             wram: Ram::new(Kind::Wram, 0xC000, 0x2000, 0x100),
             oam: Ram::new(Kind::Oam, 0xFE00, 0xA0, 0xA0),
-            io: Default::default(),
+            io: Io::new(),
             hram: Ram::new(Kind::Hram, 0xFF80, 0x7F, 0x7F),
             bios_enabled: true,
         })
