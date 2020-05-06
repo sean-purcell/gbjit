@@ -19,39 +19,54 @@ macro_rules! parse_cmd {
 pub fn unpack_cpu_state(ops: &mut Assembler) {
     dynasm!(ops
         ; mov r12w, [rdi + 0x00] // sp
-        ; mov r13w, [rdi + 0x02] // pc
         ; mov ax, [rdi + 0x04] // af
         ; mov [rsp + 0x02], ah // f
         ; mov bx, [rdi + 0x06] // bc
         ; mov cx, [rdi + 0x08] // de
         ; mov dx, [rdi + 0x0a] // hl
-        ; mov r11b, [rdi + 0x0c] // intenable
+        ; mov r13b, [rdi + 0x0c] // intenable
+        ; shl r13d, 16
+        ; mov r13w, [rdi + 0x02] // pc
     );
 }
 
 pub fn repack_cpu_state(ops: &mut Assembler) {
     dynasm!(ops
         ; mov [rdi + 0x00], r12w // sp
-        ; mov [rdi + 0x02], r13w // pc
         ; mov ah, [rsp + 0x02] // f
         ; mov [rdi + 0x04], ax // af
         ; mov [rdi + 0x06], bx // bc
         ; mov [rdi + 0x08], cx // de
         ; mov [rdi + 0x0a], dx // hl
-        ; mov [rdi + 0x0c], r11b // intenable
+        ; mov [rdi + 0x02], r13w // pc
+        ; shr r13d, 16
+        ; mov [rdi + 0x0c], r13b // intenable
     );
 }
 
 pub fn setup_limit_address(ops: &mut Assembler) {
     dynasm!(ops
-        ; test r11b, r11b
+        ; test r13d, 0x100
         ; cmovz r15, [rsp + 0x20]
         ; cmovnz r15, [rsp + 0x28]
     );
 }
 
+pub fn int_enable(ops: &mut Assembler) {
+    dynasm!(ops
+        ; or r13d, 0x100
+        ; mov r15, [rsp + 0x28]
+    );
+}
+
+pub fn int_disable(ops: &mut Assembler) {
+    dynasm!(ops
+        ; and r13d, 0xff
+        ; mov r15, [rsp + 0x20]
+    );
+}
+
 pub fn push_state(ops: &mut Assembler) {
-    // TODO: add r11 when we start using that
     dynasm!(ops
         ; mov [rsp + 0x03], al
         ; mov [rsp + 0x04], cx
@@ -60,7 +75,6 @@ pub fn push_state(ops: &mut Assembler) {
 }
 
 pub fn pop_state(ops: &mut Assembler) {
-    // TODO: add r11 when we start using that
     dynasm!(ops
         ; mov al, [rsp + 0x03]
         ; mov cx, [rsp + 0x04]

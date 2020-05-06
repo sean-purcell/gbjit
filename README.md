@@ -18,10 +18,12 @@ Compilation Model
 - HL maps to dh,dl
 - SP maps to r12w
 - PC maps to r13w
-- intenable is in r11
+- intenable is placed in the 16th bit of edi
 - The cycle count is stored in r14
 - The cycle count an interrupt will be generated at is in r15
 - The address of the memory object is stored in rbp
+
+TODO: Determine if some of those should be on the stack instead of a register
 
 ### Stack layout
 0x58 bytes of stack space are allocated
@@ -35,7 +37,6 @@ Top 0x28 are used for saving rbp, r12-r15
 0x18-0x20: Return address for oneoff instructions
 0x20-0x28: Int disabled cycle limit
 0x28-0x30: Int enabled cycle limit
-TODO: Determine if some of those should be on the stack instead of a register
 
 ### Execution model
 Each arbitrary-sized page of instructions is compiled separately, and has an entry

@@ -33,10 +33,11 @@ pub(super) fn generate(
         }
         Di | Ei => {
             let enable = cmd == Ei;
-            dynasm!(ops
-                ; mov rdi, QWORD if enable { 1 } else { 0 }
-                ;; call_interrupts(ops, bus)
-            );
+            if enable {
+                int_enable(ops);
+            } else {
+                int_disable(ops);
+            };
         }
     };
 

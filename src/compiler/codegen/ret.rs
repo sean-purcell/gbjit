@@ -6,7 +6,7 @@ pub(super) fn generate(
     bus: &ExternalBus,
 ) -> EpilogueDescription {
     // TODO: use intenable
-    let (condition, _intenable) =
+    let (condition, intenable) =
         parse_cmd!(inst, Ret { condition, intenable } => (condition, intenable));
 
     let skip_label = if condition != Condition::Always {
@@ -31,6 +31,10 @@ pub(super) fn generate(
         ; inc r12w
         ; mov di, [rsp + 0x00]
     );
+
+    if intenable {
+        int_enable(ops);
+    }
 
     let target = JumpDescription::Dynamic;
 
