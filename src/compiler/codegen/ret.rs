@@ -5,7 +5,6 @@ pub(super) fn generate(
     inst: &Instruction,
     bus: &ExternalBus,
 ) -> EpilogueDescription {
-    // TODO: use intenable
     let (condition, intenable) =
         parse_cmd!(inst, Ret { condition, intenable } => (condition, intenable));
 
