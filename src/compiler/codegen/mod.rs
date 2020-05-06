@@ -237,9 +237,9 @@ fn assemble_instruction<'a>(
         dynasm!(ops
             ;; push_state(ops)
             ; mov rdi, [rsp + 0x08]
+            ;; repack_cpu_state(ops)
             ; mov rsi, inst.encoding[0] as _
             ; mov rdx, [r14]
-            ;; repack_cpu_state(ops)
             ; mov rax, QWORD log_state as _
             ; call rax
             ;; pop_state(ops)
