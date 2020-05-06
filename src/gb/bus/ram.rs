@@ -5,7 +5,6 @@ pub struct Ram {
     versions: Vec<u64>,
     kind: Kind,
     base_addr: u16,
-    size: u16,
     page_size: u16,
 }
 
@@ -26,21 +25,12 @@ impl Ram {
             versions,
             kind,
             base_addr,
-            size,
             page_size,
         }
     }
 }
 
 impl Module for Ram {
-    fn base_addr(&self) -> u16 {
-        self.base_addr
-    }
-
-    fn size(&self) -> u16 {
-        self.size
-    }
-
     fn read(&mut self, addr: u16) -> u8 {
         self.mem[addr.wrapping_sub(self.base_addr) as usize]
     }

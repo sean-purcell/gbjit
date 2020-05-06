@@ -62,12 +62,27 @@ impl Bus {
     }
 
     fn map_device(&mut self, addr: u16) -> Option<&mut dyn Module> {
+        macro_rules! mmap {
+            ($($pattern:pat => $module:ident,)*) => {
+                match addr {
+                    $($pattern => Some(&mut self.$module),)*
+                    _ => None,
+                }
+            }
+        }
         if self.bios_enabled && addr < 0x100 {
-            Some(&mut self.bios)
-        } else if addr < 0x8000 {
-            Some(&mut self.cart)
-        } else {
-            None
+            return Some(&mut self.bios);
+        }
+
+        mmap! {
+            0x0000..=0x7FFF => cart,
+            0x8000..=0x9FFF => vram,
+            0xA000..=0xBFFF => cram,
+            0xC000..=0xFDFF => wram,
+            0xFE00..=0xFE9F => oam,
+            0xFF00..=0xFF7F => io,
+            0xFF80..=0xFFFE => hram,
+            0xFFFF => io,
         }
     }
 

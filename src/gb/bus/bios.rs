@@ -13,14 +13,6 @@ impl Bios {
 }
 
 impl Module for Bios {
-    fn base_addr(&self) -> u16 {
-        0
-    }
-
-    fn size(&self) -> u16 {
-        256
-    }
-
     fn read(&mut self, addr: u16) -> u8 {
         (*self.0)[addr as usize]
     }

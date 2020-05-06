@@ -24,14 +24,6 @@ impl Cartridge {
 }
 
 impl Module for Cartridge {
-    fn base_addr(&self) -> u16 {
-        0
-    }
-
-    fn size(&self) -> u16 {
-        0x8000
-    }
-
     fn read(&mut self, addr: u16) -> u8 {
         // TODO: implement MBC
         self.rom[addr as usize]

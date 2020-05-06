@@ -5,6 +5,12 @@ authors = ["Sean Purcell <me@seanp.xyz>"]
 edition = "2018"
 default-run = "gbjit"
 
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
 [dependencies]
 capstone = "0.6"
 dynasm = "0.6"
