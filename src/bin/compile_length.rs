@@ -22,7 +22,6 @@ pub fn main() {
         ExternalBus::<()> {
             read: mem::transmute(0usize),
             write: mem::transmute(0usize),
-            interrupts: mem::transmute(0usize),
         }
         .type_erased()
     };
