@@ -18,7 +18,7 @@ Compilation Model
 - HL maps to dh,dl
 - SP maps to r12w
 - PC maps to r13w
-- intenable is placed in the 16th bit of edi
+- intenable is placed in the 16th bit of r13
 - The cycle count is stored in r14
 - The cycle count an interrupt will be generated at is in r15
 - The address of the memory object is stored in rbp
