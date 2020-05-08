@@ -32,7 +32,9 @@ pub(super) struct RawCycleState {
 
 impl CycleState {
     pub fn new() -> Self {
-        Default::default()
+        let mut state = Default::default();
+        state.set_hard_limit(std::u64::MAX);
+        state.interrupt_limit(std::u64::MAX);
     }
 
     fn update(&self) {
@@ -49,6 +51,11 @@ impl CycleState {
     pub fn set_hard_limit(&self, val: u64) {
         set(&self.hard_limit, val);
         self.update();
+    }
+
+    /// Update the hard limit to the minimum of the current value and the provided value
+    pub fn upper_bound_hard_limit(&self, val: u64) {
+        self.set_hard_limit(min(val, get(&self.hard_limit)));
     }
 
     /// Set the intterupt cycle limit.
