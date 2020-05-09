@@ -1,7 +1,5 @@
 use std::path::Path;
 
-use log::*;
-
 pub mod dummy;
 
 mod bios;
