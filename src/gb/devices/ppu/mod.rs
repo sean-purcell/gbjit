@@ -5,13 +5,11 @@ use std::rc::Rc;
 use crate::compiler::CycleState;
 use crate::gb::bus::Bus;
 
-use crossbeam_channel as chan;
-
 mod frame;
 
 pub use frame::*;
 
-const FRAME_TIME: u64 = 70224;
+pub const FRAME_TIME: u64 = 70224;
 
 #[derive(Debug, Copy, Clone)]
 enum Mode {
@@ -21,17 +19,28 @@ enum Mode {
     Render,
 }
 
+#[derive(Debug, Default, Copy, Clone)]
+struct Settings {
+    enabled: bool,
+    oam_interrupt: bool,
+    vblank_interrupt: bool,
+    hblank_interrupt: bool,
+
+    scroll_xy: (u8, u8),
+    compare_line: u8,
+    window_xy: (u8, u8),
+}
+
 pub struct Ppu {
     cycles: Rc<CycleState>,
     mode: Mode,
     mode_started: u64,
 
-    enabled: bool,
     line: u8,
 
     current_frame: Box<Frame>,
 
-    sender: chan::Sender<Box<Frame>>,
+    s: Settings,
 }
 
 impl Mode {
@@ -57,24 +66,21 @@ impl Mode {
 }
 
 impl Ppu {
-    pub fn new(cycles: Rc<CycleState>) -> (Self, chan::Receiver<Box<Frame>>) {
-        let (sender, receiver) = chan::unbounded();
-
+    pub fn new(cycles: Rc<CycleState>) -> Self {
         let ppu = Ppu {
             cycles,
             mode: Mode::Oam,
             mode_started: 0,
-            enabled: false,
             line: 0,
             current_frame: Box::new(empty_frame()),
-            sender,
+            s: Default::default(),
         };
 
         // TODO: Set Oam/Vram accessibility here
 
         ppu.update_mode_cycle_limit();
 
-        (ppu, receiver)
+        ppu
     }
 
     fn update_mode(&mut self, new_mode: Mode) {
@@ -104,7 +110,18 @@ impl Ppu {
     fn start_mode(&mut self, new_mode: Mode, _bus: &mut Bus) {
         self.update_mode(new_mode);
 
-        // FIXME: Add match
+        match self.mode {
+            Mode::Hblank => {
+                // TODO: Unlock OAM and VRAM
+            }
+            Mode::Vblank => {}
+            Mode::Oam => {
+                // TODO: Lock OAM
+            }
+            Mode::Render => {
+                // TODO: Lock VRAM
+            }
+        }
     }
 
     fn end_mode(&mut self, bus: &mut Bus) {
@@ -118,13 +135,6 @@ impl Ppu {
                 }
             }
             Mode::Vblank => {
-                let mut frame = Box::new(empty_frame());
-                std::mem::swap(&mut frame, &mut self.current_frame);
-                match self.sender.send(frame) {
-                    Ok(()) => {}
-                    Err(_) => log::error!("Failed to send frame through channel"),
-                };
-
                 self.line = 0;
                 self.start_mode(Mode::Oam, bus);
             }
@@ -146,5 +156,19 @@ impl Ppu {
         }
 
         line
+    }
+
+    pub fn scanline(&self) -> u8 {
+        self.line
+    }
+
+    pub fn take_frame(&mut self) -> Option<Box<Frame>> {
+        if (self.line as usize) < FRAME_ROWS {
+            None
+        } else {
+            let mut frame = Box::new(empty_frame());
+            std::mem::swap(&mut frame, &mut self.current_frame);
+            Some(frame)
+        }
     }
 }
