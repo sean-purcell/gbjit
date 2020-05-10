@@ -3,6 +3,7 @@ use std::path::Path;
 pub mod dummy;
 
 mod bios;
+mod bus_wrapper;
 mod cartridge;
 mod error;
 mod io;
@@ -12,6 +13,7 @@ mod ram;
 mod rom;
 
 pub use bios::Bios;
+pub use bus_wrapper::{BusWrapper, DeviceWrapper};
 pub use cartridge::Cartridge;
 pub use error::Error;
 pub use io::Io;
@@ -28,6 +30,8 @@ type Hram = Ram;
 // TODO: Fixme with mbc detection
 type CartridgeRam = Ram;
 
+type Unused = Ram;
+
 pub struct Bus {
     bios: Bios,
     cart: Cartridge,
@@ -35,10 +39,16 @@ pub struct Bus {
     cram: CartridgeRam,
     wram: Wram,
     pub oam: Oam,
+    unused: Unused,
     pub io: Io,
     hram: Hram,
 
     bios_enabled: bool,
+}
+
+enum MapResult<'a> {
+    Memory(&'a mut dyn Module),
+    Io(&'a mut Io),
 }
 
 impl Bus {
@@ -53,23 +63,24 @@ impl Bus {
             cram: Ram::new(Kind::Cram, 0xA000, 0x2000, 0x100),
             wram: Ram::new(Kind::Wram, 0xC000, 0x2000, 0x100),
             oam: Ram::new(Kind::Oam, 0xFE00, 0xA0, 0xA0),
+            unused: Ram::new_with_data(vec![0xff; 0x60], Kind::Unused, 0xFEA0, 0x60),
             io: Io::new(),
             hram: Ram::new(Kind::Hram, 0xFF80, 0x7F, 0x7F),
             bios_enabled: true,
         })
     }
 
-    fn map_device(&mut self, addr: u16) -> Option<&mut dyn Module> {
+    fn map_device<'a>(&'a mut self, addr: u16) -> MapResult<'a> {
         macro_rules! mmap {
             ($($pattern:pat => $module:ident,)*) => {
                 match addr {
-                    $($pattern => Some(&mut self.$module),)*
-                    _ => None,
+                    $($pattern => MapResult::Memory(&mut self.$module),)*
+                    _ => MapResult::Io(&mut self.io),
                 }
             }
         }
         if self.bios_enabled && addr < 0x100 {
-            return Some(&mut self.bios);
+            return MapResult::Memory(&mut self.bios);
         }
 
         mmap! {
@@ -78,19 +89,24 @@ impl Bus {
             0xA000..=0xBFFF => cram,
             0xC000..=0xFDFF => wram,
             0xFE00..=0xFE9F => oam,
-            0xFF00..=0xFF7F => io,
+            0xFEA0..=0xFEFF => unused,
+            // 0xFF00..=0xFF7F => io,
             0xFF80..=0xFFFE => hram,
-            0xFFFF => io,
+            // 0xFFFF => io,
         }
     }
 
-    pub fn read(&mut self, addr: u16) -> u8 {
-        let val = self.map_device(addr).map_or(0xff, |page| page.read(addr));
-        val
+    pub fn read<'a>(&mut self, devices: &DeviceWrapper<'a>, addr: u16) -> u8 {
+        match self.map_device(addr) {
+            MapResult::Memory(m) => m.read(addr),
+            MapResult::Io(io) => io.read(devices, addr),
+        }
     }
 
-    pub fn write(&mut self, addr: u16, val: u8) {
-        self.map_device(addr)
-            .map_or((), |page| page.write(addr, val));
+    pub fn write<'a>(&mut self, devices: &DeviceWrapper<'a>, addr: u16, val: u8) {
+        match self.map_device(addr) {
+            MapResult::Memory(m) => m.write(addr, val),
+            MapResult::Io(io) => io.write(devices, addr, val),
+        }
     }
 }

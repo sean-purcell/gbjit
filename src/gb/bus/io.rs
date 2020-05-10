@@ -1,4 +1,4 @@
-use super::{Kind, Module, PageStatus};
+use super::{DeviceWrapper, Kind, PageStatus};
 
 #[derive(Debug)]
 pub struct Io {
@@ -11,14 +11,12 @@ impl Io {
             mem: vec![0u8; 256],
         }
     }
-}
 
-impl Module for Io {
-    fn read(&mut self, addr: u16) -> u8 {
+    pub fn read<'a>(&mut self, _devices: &DeviceWrapper<'a>, addr: u16) -> u8 {
         self.mem[(addr - 0xff00) as usize]
     }
 
-    fn write(&mut self, addr: u16, val: u8) {
+    pub fn write<'a>(&mut self, _devices: &DeviceWrapper<'a>, addr: u16, val: u8) {
         let offset = addr as u8;
         let ro_mask = ro_map(offset);
         let current_val = self.mem[offset as usize];
@@ -26,7 +24,7 @@ impl Module for Io {
         self.mem[offset as usize] = new_val;
     }
 
-    fn map_page(&mut self, addr: u16) -> PageStatus {
+    pub fn map_page<'a>(&mut self, _devices: &DeviceWrapper<'a>, addr: u16) -> PageStatus {
         // Because the IO pages change so often and are usually cyclical, do pages of size 1.
         // If anyone is crazy enough to execute in this region, put the current value in id so that
         // we don't throw away old versions of "pages".
@@ -41,7 +39,7 @@ impl Module for Io {
         }
     }
 
-    fn read_page(&mut self, fetch_key: u64) -> &[u8] {
+    pub fn read_page<'a>(&mut self, _devices: &DeviceWrapper<'a>, fetch_key: u64) -> &[u8] {
         let idx = fetch_key as usize;
         &self.mem[idx..idx + 1]
     }

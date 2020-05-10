@@ -6,6 +6,7 @@ pub enum Kind {
     Cram,
     Wram,
     Oam,
+    Unused,
     Io,
     Hram,
 }

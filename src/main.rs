@@ -8,6 +8,7 @@
 extern crate dynasm;
 
 use std::fs;
+use std::rc::Rc;
 
 use structopt::StructOpt;
 
@@ -15,7 +16,8 @@ mod compiler;
 mod cpu_state;
 mod gb;
 
-use gb::bus::Bus;
+use gb::bus::{Bus, BusWrapper};
+use gb::devices::Ppu;
 
 #[derive(StructOpt)]
 #[structopt(name = "gbjit")]
@@ -57,11 +59,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data = fs::read(args.bios)?;
 
     let bus = compiler::ExternalBus {
-        read: Bus::read,
-        write: Bus::write,
+        read: BusWrapper::read,
+        write: BusWrapper::write,
     };
 
-    let cycle_state = compiler::CycleState::new();
+    let cycle_state = Rc::new(compiler::CycleState::new());
     cycle_state.set_hard_limit(102);
     cycle_state.set_interrupt_limit(50);
 
@@ -86,7 +88,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut cpu_state = cpu_state::CpuState::new();
 
-    block.enter(&mut cpu_state, &mut gb_bus, &cycle_state);
+    let mut ppu = Ppu::new(cycle_state.clone());
+    let mut bus_wrapper = BusWrapper::new(&mut gb_bus, &mut ppu);
+
+    block.enter(&mut cpu_state, &mut bus_wrapper, &cycle_state);
 
     println!("{:?}", cpu_state);
     println!("{:?}", cycle_state);

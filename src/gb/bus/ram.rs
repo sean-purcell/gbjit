@@ -10,12 +10,22 @@ pub struct Ram {
 
 impl Ram {
     pub fn new(kind: Kind, base_addr: u16, size: u16, page_size: u16) -> Ram {
+        Ram::new_with_data(vec![0u8; size as usize], kind, base_addr, page_size)
+    }
+
+    pub fn new_with_data<T: Into<Vec<u8>>>(
+        data: T,
+        kind: Kind,
+        base_addr: u16,
+        page_size: u16,
+    ) -> Ram {
+        let mem = data.into();
+        let size = mem.len() as u16;
+
         let rem = size
             .checked_rem(page_size)
             .expect("Page size should not be 0");
         assert!(rem == 0, "Page size should be a divisor of size");
-
-        let mem = vec![0u8; size as usize];
 
         let pages = size / page_size;
         let versions = vec![0; pages as usize];
