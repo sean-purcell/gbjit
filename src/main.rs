@@ -88,7 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut cpu_state = cpu_state::CpuState::new();
 
-    let mut ppu = Ppu::new(cycle_state.clone());
+    let (mut ppu, _) = Ppu::new(cycle_state.clone());
     let mut bus_wrapper = BusWrapper::new(&mut gb_bus, &mut ppu);
 
     block.enter(&mut cpu_state, &mut bus_wrapper, &cycle_state);

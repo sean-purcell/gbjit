@@ -1,9 +1,12 @@
 #![allow(dead_code)]
 
+use std::collections::VecDeque;
 use std::rc::Rc;
 
 use crate::compiler::CycleState;
 use crate::gb::bus::Bus;
+
+use super::EventCycle;
 
 mod frame;
 
@@ -35,10 +38,12 @@ pub struct Ppu {
     cycles: Rc<CycleState>,
     mode: Mode,
     mode_started: u64,
+    frame_started: u64,
 
     line: u8,
 
     current_frame: Box<Frame>,
+    completed_frames: VecDeque<Box<Frame>>,
 
     s: Settings,
 }
@@ -66,55 +71,55 @@ impl Mode {
 }
 
 impl Ppu {
-    pub fn new(cycles: Rc<CycleState>) -> Self {
+    pub fn new(cycles: Rc<CycleState>) -> (Self, EventCycle) {
+        let current_cycle = cycles.cycle();
         let ppu = Ppu {
             cycles,
             mode: Mode::Oam,
-            mode_started: 0,
+            mode_started: current_cycle,
+            frame_started: current_cycle,
             line: 0,
             current_frame: Box::new(empty_frame()),
+            completed_frames: VecDeque::new(),
             s: Default::default(),
         };
 
-        // TODO: Set Oam/Vram accessibility here
+        let limit = ppu.mode_cycle_limit();
 
-        ppu.update_mode_cycle_limit();
-
-        ppu
+        (ppu, limit)
     }
 
-    fn update_mode(&mut self, new_mode: Mode) {
-        self.mode_started += self.mode.cycles();
-        self.mode = new_mode;
-        self.update_mode_cycle_limit();
-    }
-
-    fn update_mode_cycle_limit(&self) {
-        self.cycles
-            .upper_bound_hard_limit(self.mode_started + self.mode.cycles());
+    fn mode_cycle_limit(&self) -> u64 {
+        self.mode_started + self.mode.cycles()
     }
 
     fn mode_cycle_limit_hit(&self) -> bool {
-        let limit = self.mode_started + self.mode.cycles();
-        self.cycles.cycle() >= limit
+        self.cycles.cycle() >= self.mode_cycle_limit()
     }
 
-    pub fn process(&mut self, bus: &mut Bus) {
+    pub fn process(&mut self, bus: &mut Bus) -> EventCycle {
         if !self.mode_cycle_limit_hit() {
-            return;
+            panic!("Process should not have been called before the event limit was hit")
         }
 
         self.end_mode(bus);
+
+        self.mode_cycle_limit()
     }
 
     fn start_mode(&mut self, new_mode: Mode, _bus: &mut Bus) {
-        self.update_mode(new_mode);
+        self.mode_started += self.mode.cycles();
+        self.mode = new_mode;
 
         match self.mode {
             Mode::Hblank => {
                 // TODO: Unlock OAM and VRAM
             }
-            Mode::Vblank => {}
+            Mode::Vblank => {
+                let mut frame = Box::new(empty_frame());
+                std::mem::swap(&mut frame, &mut self.current_frame);
+                self.completed_frames.push_back(frame);
+            }
             Mode::Oam => {
                 // TODO: Lock OAM
             }
@@ -137,6 +142,7 @@ impl Ppu {
             Mode::Vblank => {
                 self.line = 0;
                 self.start_mode(Mode::Oam, bus);
+                self.frame_started = self.mode_started;
             }
             Mode::Oam => {
                 self.start_mode(Mode::Render, bus);
@@ -163,12 +169,10 @@ impl Ppu {
     }
 
     pub fn take_frame(&mut self) -> Option<Box<Frame>> {
-        if (self.line as usize) < FRAME_ROWS {
-            None
-        } else {
-            let mut frame = Box::new(empty_frame());
-            std::mem::swap(&mut frame, &mut self.current_frame);
-            Some(frame)
-        }
+        self.completed_frames.pop_front()
+    }
+
+    pub fn next_frame_end(&self) -> EventCycle {
+        self.frame_started + FRAME_TIME
     }
 }
