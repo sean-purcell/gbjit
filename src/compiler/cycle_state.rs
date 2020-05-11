@@ -43,6 +43,10 @@ impl CycleState {
         set(&self.combined_limit, min_val)
     }
 
+    pub fn advance(&self, count: u64) {
+        set(&self.cycle, get(&self.cycle) + count)
+    }
+
     /// Get the current cycle count.
     pub fn cycle(&self) -> u64 {
         get(&self.cycle)

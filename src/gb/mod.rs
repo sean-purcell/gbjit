@@ -68,5 +68,7 @@ impl Gb {
             .expect("A frame should be complete by now")
     }
 
-    fn cpu_exec(&mut self) {}
+    fn cpu_exec(&mut self) {
+        self.cycles.advance(4)
+    }
 }

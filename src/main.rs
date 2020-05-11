@@ -14,6 +14,7 @@ use structopt::StructOpt;
 
 mod compiler;
 mod cpu_state;
+mod frontend;
 mod gb;
 
 use gb::bus::{Bus, BusWrapper};
@@ -26,7 +27,7 @@ A WIP just-in-time compiler for the GameBoy and GameBoy Colour.
 
 Currently just disassembles a given binary.
 "#)]
-struct Args {
+pub struct Args {
     /// GB bios file
     bios: String,
 
@@ -48,12 +49,20 @@ struct Args {
     /// Whether to generate log traces for each instruction executed
     #[structopt(short, long)]
     trace_pc: bool,
+
+    /// Whether to run in a GUI
+    #[structopt(short, long)]
+    gui: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     let args = Args::from_args();
+
+    if args.gui {
+        return frontend::gui::run(&args);
+    }
 
     let mut gb_bus = Bus::new(&args.bios, &args.rom)?;
     let data = fs::read(args.bios)?;
