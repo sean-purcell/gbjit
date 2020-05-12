@@ -1,5 +1,5 @@
 use super::EventCycle;
 
-mod ppu;
+pub mod ppu;
 
-pub use ppu::{Colour, Frame, Ppu, Scanline};
+pub use ppu::{Frame, Ppu};

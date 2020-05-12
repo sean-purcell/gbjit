@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::rc::Rc;
 
@@ -19,7 +20,7 @@ struct EventEntry {
 
 pub struct EventManager {
     cycles: Rc<CycleState>,
-    events: BinaryHeap<EventEntry>,
+    events: BinaryHeap<Reverse<EventEntry>>,
 }
 
 struct EventIter(Vec<EventSource>);
@@ -33,7 +34,7 @@ impl EventManager {
     }
 
     pub fn add_event(&mut self, source: EventSource, cycle: EventCycle) {
-        self.events.push(EventEntry { cycle, source });
+        self.events.push(Reverse(EventEntry { cycle, source }));
         self.update_cycles();
     }
 
@@ -41,7 +42,7 @@ impl EventManager {
         let new_limit = self
             .events
             .peek()
-            .map_or(std::u64::MAX, |front| front.cycle);
+            .map_or(std::u64::MAX, |front| front.0.cycle);
         self.cycles.set_hard_limit(new_limit);
     }
 
@@ -49,9 +50,11 @@ impl EventManager {
         let mut ret = vec![];
         let current_cycle = self.cycles.cycle();
         while let Some(front) = self.events.peek().copied() {
-            if front.cycle <= current_cycle {
+            if front.0.cycle <= current_cycle {
                 self.events.pop();
-                ret.push(front.source);
+                ret.push(front.0.source);
+            } else {
+                break;
             }
         }
         ret.reverse();
