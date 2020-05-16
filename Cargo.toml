@@ -12,6 +12,7 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
+anyhow = "1.0"
 capstone = "0.6"
 crossbeam-channel = "0.4"
 dynasm = "0.6"

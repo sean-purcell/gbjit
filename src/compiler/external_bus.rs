@@ -4,10 +4,16 @@ use std::mem;
 /// Generic<T> represents the interaction the Cpu can make with the system T. Each function returns
 /// a bool which indicates whether the state has changed in a way that means the JIT'ed code should
 /// return and allow the runtime to re-evaluate.
-#[derive(Copy, Clone)]
 pub struct Generic<T> {
     pub read: fn(&mut T, addr: u16) -> u8,
     pub write: fn(&mut T, addr: u16, val: u8),
+}
+
+impl<T> Copy for Generic<T> {}
+impl<T> Clone for Generic<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 
 /// TypeErased is the type erased version of Generic that will be passed to the assembly.

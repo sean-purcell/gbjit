@@ -14,6 +14,7 @@ use structopt::StructOpt;
 
 mod compiler;
 mod cpu_state;
+mod executor;
 mod frontend;
 mod gb;
 
