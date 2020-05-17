@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Hash, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum Kind {
     Bios,
     Cartridge,

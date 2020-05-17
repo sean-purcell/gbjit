@@ -13,6 +13,7 @@ use glium::{
 use log::*;
 
 use crate::{
+    compiler::CompileOptions,
     gb::{
         devices::ppu::{Colour, Frame, FRAME_COLS, FRAME_ROWS},
         Gb,
@@ -42,7 +43,13 @@ pub fn run(args: &Args) -> Result<(), Box<dyn StdError>> {
         BufferMode::Persistent,
     )?;
 
-    let mut gb = Gb::new(&args.bios, &args.rom)?;
+    let mut gb = Gb::new(
+        &args.bios,
+        &args.rom,
+        CompileOptions {
+            trace_pc: args.trace_pc,
+        },
+    )?;
 
     event_loop.run(move |_, _, _| {
         log::debug!("Simulating GB");

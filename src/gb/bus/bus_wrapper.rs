@@ -1,10 +1,6 @@
 use crate::gb::devices::Ppu;
 
-use super::Bus;
-
-pub struct DeviceWrapper<'a> {
-    ppu: &'a mut Ppu,
-}
+use super::{Bus, DeviceWrapper};
 
 pub struct BusWrapper<'a> {
     bus: &'a mut Bus,

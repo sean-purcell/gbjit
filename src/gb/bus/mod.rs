@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::gb::devices::Ppu;
+
 pub mod dummy;
 
 mod bios;
@@ -13,7 +15,7 @@ mod ram;
 mod rom;
 
 pub use bios::Bios;
-pub use bus_wrapper::{BusWrapper, DeviceWrapper};
+pub use bus_wrapper::BusWrapper;
 pub use cartridge::Cartridge;
 pub use error::Error;
 pub use io::Io;
@@ -44,6 +46,10 @@ pub struct Bus {
     hram: Hram,
 
     bios_enabled: bool,
+}
+
+pub struct DeviceWrapper<'a> {
+    ppu: &'a mut Ppu,
 }
 
 enum MapResult<'a> {
@@ -108,5 +114,11 @@ impl Bus {
             MapResult::Memory(m) => m.write(addr, val),
             MapResult::Io(io) => io.write(devices, addr, val),
         }
+    }
+}
+
+impl<'a> DeviceWrapper<'a> {
+    pub fn new(ppu: &'a mut Ppu) -> Self {
+        DeviceWrapper { ppu }
     }
 }

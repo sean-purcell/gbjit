@@ -35,7 +35,6 @@ where
         id: I,
         version: u64,
         base_addr: u16,
-        size: u16,
         data: &[u8],
     ) -> Result<&CodeBlock<T>, Error> {
         let bus = self.bus;

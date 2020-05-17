@@ -7,4 +7,5 @@
 
 pub mod compiler;
 pub mod cpu_state;
+pub mod executor;
 pub mod gb;

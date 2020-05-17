@@ -35,10 +35,10 @@ impl EventManager {
 
     pub fn add_event(&mut self, source: EventSource, cycle: EventCycle) {
         self.events.push(Reverse(EventEntry { cycle, source }));
-        self.update_cycles();
+        self.update_limit();
     }
 
-    fn update_cycles(&self) {
+    pub fn update_limit(&self) {
         let new_limit = self
             .events
             .peek()
