@@ -11,15 +11,11 @@ pub struct PageStatus {
 
     pub base_addr: u16,
     pub size: u16,
-
-    /// This should be passed as the parameter to the Module's read_page function
-    pub fetch_key: u64,
 }
 
 pub trait Module {
     fn read(&mut self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, val: u8);
 
-    fn map_page(&mut self, addr: u16) -> PageStatus;
-    fn read_page(&mut self, fetch_key: u64) -> &[u8];
+    fn map_page(&mut self, addr: u16) -> (PageStatus, &[u8]);
 }

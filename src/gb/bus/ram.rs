@@ -57,20 +57,18 @@ impl Module for Ram {
         }
     }
 
-    fn map_page(&mut self, addr: u16) -> PageStatus {
+    fn map_page(&mut self, addr: u16) -> (PageStatus, &[u8]) {
         let idx = addr.wrapping_sub(self.base_addr);
         let page_idx = idx / self.page_size;
-        PageStatus {
-            id: (self.kind, page_idx as u64),
-            version: self.versions[page_idx as usize],
-            base_addr: self.base_addr.wrapping_add(page_idx * self.page_size),
-            size: self.page_size,
-            fetch_key: page_idx as u64,
-        }
-    }
-
-    fn read_page(&mut self, fetch_key: u64) -> &[u8] {
-        let base = (fetch_key as usize) * (self.page_size as usize);
-        &self.mem[base..base + self.page_size as usize]
+        let mem_base = (page_idx * self.page_size) as usize;
+        (
+            PageStatus {
+                id: (self.kind, page_idx as u64),
+                version: self.versions[page_idx as usize],
+                base_addr: self.base_addr.wrapping_add(mem_base as u16),
+                size: self.page_size,
+            },
+            &self.mem[mem_base..mem_base + (self.page_size as usize)],
+        )
     }
 }

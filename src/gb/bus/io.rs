@@ -35,13 +35,7 @@ impl Io {
             version: 0,
             base_addr: addr,
             size: 1,
-            fetch_key: offset,
         }
-    }
-
-    pub fn read_page<'a>(&mut self, _devices: &DeviceWrapper<'a>, fetch_key: u64) -> &[u8] {
-        let idx = fetch_key as usize;
-        &self.mem[idx..idx + 1]
     }
 }
 

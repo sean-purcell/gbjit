@@ -37,21 +37,18 @@ impl Module for Cartridge {
         );
     }
 
-    fn map_page(&mut self, addr: u16) -> PageStatus {
+    fn map_page(&mut self, addr: u16) -> (PageStatus, &[u8]) {
         // TODO: implement MBC
         let idx = addr / 0x4000;
         let base_addr = idx * 0x4000;
-        PageStatus {
-            id: (Kind::Cartridge, idx as u64),
-            version: 0,
-            base_addr,
-            size: 0x4000,
-            fetch_key: base_addr as _,
-        }
-    }
-
-    fn read_page(&mut self, fetch_key: u64) -> &[u8] {
-        let idx = fetch_key as usize;
-        &self.rom[idx..idx + 0x4000]
+        (
+            PageStatus {
+                id: (Kind::Cartridge, idx as u64),
+                version: 0,
+                base_addr,
+                size: 0x4000,
+            },
+            &self.rom[base_addr as usize..base_addr as usize + 0x4000],
+        )
     }
 }
