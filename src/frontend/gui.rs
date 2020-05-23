@@ -10,10 +10,9 @@ use glium::{
     uniforms::MagnifySamplerFilter,
     BlitTarget, Display, Rect, Surface,
 };
-use log::*;
 
 use crate::{
-    compiler::CompileOptions,
+    executor::ExecutorOptions,
     gb::{
         devices::ppu::{Colour, Frame, FRAME_COLS, FRAME_ROWS},
         Gb,
@@ -24,7 +23,7 @@ use crate::{
 type GlColour = (u8, u8, u8);
 
 pub fn run(args: &Args) -> Result<(), Box<dyn StdError>> {
-    let mut event_loop = EventLoop::new();
+    let event_loop = EventLoop::new();
     let wb = WindowBuilder::new()
         .with_inner_size(LogicalSize::new(1280, 1152))
         .with_resizable(false)
@@ -46,14 +45,17 @@ pub fn run(args: &Args) -> Result<(), Box<dyn StdError>> {
     let mut gb = Gb::new(
         &args.bios,
         &args.rom,
-        CompileOptions {
+        ExecutorOptions {
             trace_pc: args.trace_pc,
+            disassembly_logfile: args.disassembly_logfile.clone(),
         },
     )?;
 
     event_loop.run(move |_, _, _| {
         log::debug!("Simulating GB");
-        let frame = gb.run_frame();
+        let frame = gb
+            .run_frame()
+            .expect("Experienced error while producing frame");
         log::debug!("Simulation finished");
 
         let data = transcribe_frame(&*frame);

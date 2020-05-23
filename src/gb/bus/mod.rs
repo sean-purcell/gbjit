@@ -116,10 +116,10 @@ impl Bus {
         }
     }
 
-    pub fn map_page<'a>(&mut self, devices: &DeviceWrapper<'a>, addr: u16) -> (PageStatus, &[u8]) {
+    pub fn map_page<'a>(&mut self, _devices: &DeviceWrapper<'a>, addr: u16) -> (PageStatus, &[u8]) {
         match self.map_device(addr) {
             MapResult::Memory(m) => m.map_page(addr),
-            MapResult::Io(io) => panic!("Mapping IO not yet supported"),
+            MapResult::Io(_io) => panic!("Mapping IO not yet supported"),
         }
     }
 }

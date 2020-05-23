@@ -7,9 +7,6 @@
 
 extern crate dynasm;
 
-use std::fs;
-use std::rc::Rc;
-
 use structopt::StructOpt;
 
 mod compiler;
@@ -35,25 +32,13 @@ pub struct Args {
     /// GB rom to run
     rom: String,
 
-    /// Whether to print disassembled pages before executing
+    /// Logfile to write GB and x86 disassembly to
     #[structopt(short, long)]
-    disassemble: bool,
-
-    /// Whether to print just the commands or the full instructions
-    #[structopt(short, long)]
-    full_disassembly: bool,
-
-    /// Whether to print the disassembly of the code block
-    #[structopt(short, long)]
-    x64_disasm: bool,
+    disassembly_logfile: Option<String>,
 
     /// Whether to generate log traces for each instruction executed
     #[structopt(short, long)]
     trace_pc: bool,
-
-    /// Whether to run in a GUI
-    #[structopt(short, long)]
-    gui: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -61,52 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::from_args();
 
-    if args.gui {
-        return frontend::gui::run(&args);
-    }
-
-    let mut gb_bus = Bus::new(&args.bios, &args.rom)?;
-    let data = fs::read(args.bios)?;
-
-    let bus = compiler::ExternalBus {
-        read: BusWrapper::read,
-        write: BusWrapper::write,
-    };
-
-    let cycle_state = Rc::new(compiler::CycleState::new());
-    cycle_state.set_hard_limit(102);
-    cycle_state.set_interrupt_limit(50);
-
-    let options = compiler::CompileOptions {
-        trace_pc: args.trace_pc,
-    };
-    let oneoffs = compiler::OneoffTable::generate(&bus, &options).unwrap();
-
-    let block = compiler::compile(0, data.as_slice(), bus, &oneoffs, &options)?;
-
-    if args.disassemble {
-        print_disassembly(&block, args.full_disassembly);
-    }
-
-    if args.x64_disasm {
-        println!("Disassembly:");
-        for i in block.disassemble()? {
-            println!("{}", i);
-        }
-        println!();
-    }
-
-    let mut cpu_state = cpu_state::CpuState::new();
-
-    let (mut ppu, _) = Ppu::new(cycle_state.clone());
-    let mut bus_wrapper = BusWrapper::new(&mut gb_bus, &mut ppu);
-
-    block.enter(&mut cpu_state, &mut bus_wrapper, &cycle_state);
-
-    println!("{:?}", cpu_state);
-    println!("{:?}", cycle_state);
-
-    Ok(())
+    frontend::gui::run(&args)
 }
 
 fn print_disassembly<T>(block: &compiler::CodeBlock<T>, full: bool) {

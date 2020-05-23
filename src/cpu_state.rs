@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 #[repr(C)]
 pub struct CpuState {
     pub sp: u16,

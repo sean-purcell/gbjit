@@ -58,6 +58,11 @@ impl CycleState {
         self.update();
     }
 
+    pub fn force_stop(&self) {
+        set(&self.hard_limit, 0);
+        self.update();
+    }
+
     /// Update the hard limit to the minimum of the current value and the provided value
     pub fn upper_bound_hard_limit(&self, val: u64) {
         self.set_hard_limit(min(val, get(&self.hard_limit)));
