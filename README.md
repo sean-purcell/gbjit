@@ -26,8 +26,8 @@ Compilation Model
 TODO: Determine if some of those should be on the stack instead of a register
 
 ### Stack layout
-0x58 bytes of stack space are allocated
-Top 0x28 are used for saving rbp, r12-r15
+0x68 bytes of stack space are allocated
+Top 0x30 are used for saving rbx, rbp, r12-r15
 
 0x00-0x02: Scratch space
 0x02-0x03: LAHF format F
@@ -37,6 +37,7 @@ Top 0x28 are used for saving rbp, r12-r15
 0x18-0x20: Return address for oneoff instructions
 0x20-0x28: Int disabled cycle limit
 0x28-0x30: Int enabled cycle limit
+0x30-0x38: Currently unused
 
 ### Execution model
 Each arbitrary-sized page of instructions is compiled separately, and has an entry

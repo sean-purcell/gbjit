@@ -136,7 +136,8 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
         ; mov [rsp - 0x10], r13
         ; mov [rsp - 0x18], r14
         ; mov [rsp - 0x20], r15
-        ; sub rsp, 0x50
+        ; mov [rsp - 0x28], rbx
+        ; sub rsp, 0x60
         ; mov rbp, rsi
         ;; setup_cycle_registers(ops)
         ;; unpack_cpu_state(ops)
@@ -146,11 +147,12 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
         ; -> exit:
         ; mov rdi, [rsp + 0x08]
         ;; repack_cpu_state(ops)
-        ; add rsp, 0x50
+        ; add rsp, 0x60
         ; mov r12, [rsp - 0x08]
         ; mov r13, [rsp - 0x10]
         ; mov r14, [rsp - 0x18]
         ; mov r15, [rsp - 0x20]
+        ; mov rbx, [rsp - 0x28]
         ; pop rbp
         ; ret
     );

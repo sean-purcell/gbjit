@@ -5,11 +5,17 @@ use glium::{
     backend::glutin::DisplayCreationError,
     buffer::{Buffer, BufferMode, BufferType},
     framebuffer::SimpleFrameBuffer,
-    glutin::{dpi::LogicalSize, event_loop::EventLoop, window::WindowBuilder, ContextBuilder},
+    glutin::{
+        dpi::LogicalSize,
+        event_loop::{ControlFlow, EventLoop},
+        window::WindowBuilder,
+        ContextBuilder,
+    },
     texture::Texture2d,
     uniforms::MagnifySamplerFilter,
     BlitTarget, Display, Rect, Surface,
 };
+use log::*;
 
 use crate::{
     executor::ExecutorOptions,
@@ -51,12 +57,14 @@ pub fn run(args: &Args) -> Result<(), Box<dyn StdError>> {
         },
     )?;
 
-    event_loop.run(move |_, _, _| {
-        log::debug!("Simulating GB");
+    event_loop.run(move |event, _, flow| {
+        debug!("Event: {:?}", event);
+        debug!("Control Flow: {:?}", flow);
+        debug!("Simulating GB");
         let frame = gb
             .run_frame()
             .expect("Experienced error while producing frame");
-        log::debug!("Simulation finished");
+        debug!("Simulation finished");
 
         let data = transcribe_frame(&*frame);
         let slice = buffer.as_slice();
