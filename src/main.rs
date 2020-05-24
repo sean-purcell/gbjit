@@ -15,9 +15,6 @@ mod executor;
 mod frontend;
 mod gb;
 
-use gb::bus::{Bus, BusWrapper};
-use gb::devices::Ppu;
-
 #[derive(StructOpt)]
 #[structopt(name = "gbjit")]
 #[structopt(about = r#"
@@ -47,25 +44,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::from_args();
 
     frontend::gui::run(&args)
-}
-
-fn print_disassembly<T>(block: &compiler::CodeBlock<T>, full: bool) {
-    let insts = block.instructions();
-    let mut idx = 0;
-    while idx < insts.len() {
-        let i = &insts[idx];
-        if full {
-            println!("{:#05x}: {:?}", idx, i);
-        } else {
-            println!("{:#05x?}: ", idx);
-            match i {
-                Ok(i) => println!("{:?}", i.cmd),
-                Err(bytes) => println!("{:02x?}", bytes),
-            }
-        }
-        idx += match i {
-            Ok(i) => i.size() as usize,
-            Err(bytes) => bytes.len(),
-        };
-    }
 }

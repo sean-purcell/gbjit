@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::gb::devices::Ppu;
 
 use super::{Bus, DeviceWrapper};

@@ -20,7 +20,7 @@ use log::*;
 use crate::{
     executor::ExecutorOptions,
     gb::{
-        devices::ppu::{Colour, Frame, FRAME_COLS, FRAME_ROWS},
+        devices::ppu::{Frame, FRAME_COLS, FRAME_ROWS},
         Gb,
     },
     Args,
