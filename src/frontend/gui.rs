@@ -2,15 +2,9 @@ use std::error::Error as StdError;
 use std::mem;
 
 use glium::{
-    backend::glutin::DisplayCreationError,
     buffer::{Buffer, BufferMode, BufferType},
     framebuffer::SimpleFrameBuffer,
-    glutin::{
-        dpi::LogicalSize,
-        event_loop::{ControlFlow, EventLoop},
-        window::WindowBuilder,
-        ContextBuilder,
-    },
+    glutin::{dpi::LogicalSize, event_loop::EventLoop, window::WindowBuilder, ContextBuilder},
     texture::Texture2d,
     uniforms::MagnifySamplerFilter,
     BlitTarget, Display, Rect, Surface,
@@ -101,14 +95,8 @@ pub fn run(args: &Args) -> Result<(), Box<dyn StdError>> {
 
 pub fn transcribe_frame(frame: &Frame) -> [GlColour; FRAME_ROWS * FRAME_COLS] {
     let mut result = [(0, 0, 0); FRAME_ROWS * FRAME_COLS];
-    let mut idx = 0;
-    for r in 0..FRAME_ROWS {
-        let row = &frame[r];
-        for c in 0..FRAME_COLS {
-            let px = &row[c];
-            result[idx] = (px.0, px.1, px.2);
-            idx += 1;
-        }
+    for (src, dst) in frame.iter().flat_map(|x| x.iter()).zip(result.iter_mut()) {
+        *dst = (src.0, src.1, src.2);
     }
     result
 }

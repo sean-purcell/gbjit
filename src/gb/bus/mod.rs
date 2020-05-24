@@ -102,21 +102,21 @@ impl Bus {
         }
     }
 
-    pub fn read<'a>(&mut self, devices: &DeviceWrapper<'a>, addr: u16) -> u8 {
+    pub fn read(&mut self, devices: &DeviceWrapper<'_>, addr: u16) -> u8 {
         match self.map_device(addr) {
             MapResult::Memory(m) => m.read(addr),
             MapResult::Io(io) => io.read(devices, addr),
         }
     }
 
-    pub fn write<'a>(&mut self, devices: &DeviceWrapper<'a>, addr: u16, val: u8) {
+    pub fn write(&mut self, devices: &DeviceWrapper<'_>, addr: u16, val: u8) {
         match self.map_device(addr) {
             MapResult::Memory(m) => m.write(addr, val),
             MapResult::Io(io) => io.write(devices, addr, val),
         }
     }
 
-    pub fn map_page<'a>(&mut self, _devices: &DeviceWrapper<'a>, addr: u16) -> (PageStatus, &[u8]) {
+    pub fn map_page(&mut self, _devices: &DeviceWrapper<'_>, addr: u16) -> (PageStatus, &[u8]) {
         match self.map_device(addr) {
             MapResult::Memory(m) => m.map_page(addr),
             MapResult::Io(_io) => panic!("Mapping IO not yet supported"),

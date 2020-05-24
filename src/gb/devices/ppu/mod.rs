@@ -157,8 +157,8 @@ impl Ppu {
     fn render_line(&mut self, _bus: &mut Bus) -> Scanline {
         let mut line = empty_scanline();
 
-        for i in 0..FRAME_COLS {
-            line[i] = Colour(i as u8, 255, 255);
+        for (i, col) in line.iter_mut().enumerate() {
+            *col = Colour(i as u8, 255, 255);
         }
 
         line

@@ -64,7 +64,7 @@ impl Gb {
             cycles: cycles.clone(),
             cpu_state,
             components: Components {
-                cycles: cycles.clone(),
+                cycles,
                 bus,
                 ppu,
                 execution_state,
@@ -118,7 +118,7 @@ impl Gb {
 }
 
 impl Components {
-    fn device_wrapper<'a>(&'a mut self) -> (DeviceWrapper<'a>, &'a mut Bus) {
+    fn device_wrapper(&mut self) -> (DeviceWrapper<'_>, &mut Bus) {
         (DeviceWrapper::new(&mut self.ppu), &mut self.bus)
     }
 
