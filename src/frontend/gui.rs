@@ -25,13 +25,18 @@ type GlColour = (u8, u8, u8);
 pub fn run(args: &Args) -> Result<(), Box<dyn StdError>> {
     let event_loop = EventLoop::new();
     let wb = WindowBuilder::new()
-        .with_inner_size(LogicalSize::new(1280, 1152))
+        .with_inner_size(LogicalSize::new(
+            args.screen_dimensions.0,
+            args.screen_dimensions.1,
+        ))
         .with_resizable(false)
         .with_title("JIT Gameboy Emulator");
 
     let cb = ContextBuilder::new();
 
     let display = Display::new(wb, cb, &event_loop)?;
+
+    let pixels = display.get_framebuffer_dimensions();
 
     let texture = Texture2d::empty(&display, FRAME_COLS as _, FRAME_ROWS as _)?;
 
@@ -84,8 +89,8 @@ pub fn run(args: &Args) -> Result<(), Box<dyn StdError>> {
             &BlitTarget {
                 left: 0,
                 bottom: 0,
-                width: 1280,
-                height: 1152,
+                width: pixels.0 as i32,
+                height: pixels.1 as i32,
             },
             MagnifySamplerFilter::Nearest,
         );

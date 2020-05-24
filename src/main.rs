@@ -36,6 +36,14 @@ pub struct Args {
     /// Whether to generate log traces for each instruction executed
     #[structopt(short, long)]
     trace_pc: bool,
+
+    #[structopt(
+        short = "p",
+        long = "px",
+        default_value = "960,864",
+        parse(try_from_str = parse_tuple)
+    )]
+    screen_dimensions: (u32, u32),
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -44,4 +52,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::from_args();
 
     frontend::gui::run(&args)
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("Failed to parse {src}")]
+struct DimensionParseError {
+    src: String,
+}
+
+impl From<&str> for DimensionParseError {
+    fn from(s: &str) -> Self {
+        DimensionParseError {
+            src: String::from(s),
+        }
+    }
+}
+
+fn parse_tuple(src: &str) -> Result<(u32, u32), DimensionParseError> {
+    use std::str::FromStr;
+
+    let components: Result<Vec<u32>, std::num::ParseIntError> =
+        src.split(",").map(u32::from_str).collect();
+    let components = components.map_err(|_| DimensionParseError::from(src))?;
+    match *components {
+        [w, h] => Ok((w, h)),
+        _ => Err(src.into()),
+    }
 }
