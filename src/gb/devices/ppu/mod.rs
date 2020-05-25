@@ -35,6 +35,15 @@ impl From<u8> for BwPalette {
 #[derive(Debug, Default, Copy, Clone)]
 struct Settings {
     enabled: bool,
+
+    window_tmap: bool,
+    window_en: bool,
+    tile_data: bool,
+    bg_tmap: bool,
+    obj_size: bool,
+    obj_en: bool,
+    bg_en: bool,
+
     coincidence_interrupt: bool,
     oam_interrupt: bool,
     vblank_interrupt: bool,
@@ -188,15 +197,37 @@ impl Ppu {
     }
 
     pub fn read(&mut self, offset: u8) -> u8 {
+        macro_rules! write_bitfield {
+            { $( $idx:expr => $field:expr, )* } => {
+                (
+                $(
+                    to_flag($field, $idx) |
+                )*
+                0)
+            }
+        }
         match offset {
+            0x40 => {
+                write_bitfield! {
+                    7 => self.s.enabled,
+                    6 => self.s.window_tmap,
+                    5 => self.s.window_en,
+                    4 => self.s.tile_data,
+                    3 => self.s.bg_tmap,
+                    2 => self.s.obj_size,
+                    1 => self.s.obj_en,
+                    0 => self.s.bg_en,
+                }
+            }
             0x41 => {
-                to_bitfield(&[
-                    (self.s.coincidence_interrupt, 6),
-                    (self.s.oam_interrupt, 5),
-                    (self.s.vblank_interrupt, 4),
-                    (self.s.hblank_interrupt, 3),
-                    (self.s.compare_line == self.scanline(), 2),
-                ]) | self.mode.id()
+                self.mode.id()
+                    | write_bitfield! {
+                        6 => self.s.coincidence_interrupt,
+                        5 => self.s.oam_interrupt,
+                        4 => self.s.vblank_interrupt,
+                        3 => self.s.hblank_interrupt,
+                        2 => self.s.compare_line == self.scanline(),
+                    }
             }
             0x44 => self.scanline(),
             0x47 => self.s.bg_palette.0,
@@ -207,16 +238,36 @@ impl Ppu {
     }
 
     pub fn write(&mut self, offset: u8, val: u8) {
+        macro_rules! read_bitfield {
+            { $val:expr, $( $idx:expr => $field:expr, )* } => {{
+                $(
+                    $field = from_flag($val, $idx);
+                )*
+            }}
+        }
         match offset {
-            0x41 => from_bitfield(
-                val,
-                &mut [
-                    (&mut self.s.coincidence_interrupt, 6),
-                    (&mut self.s.oam_interrupt, 5),
-                    (&mut self.s.vblank_interrupt, 4),
-                    (&mut self.s.hblank_interrupt, 3),
-                ],
-            ),
+            0x40 => {
+                read_bitfield! {
+                    val,
+                    7 => self.s.enabled,
+                    6 => self.s.window_tmap,
+                    5 => self.s.window_en,
+                    4 => self.s.tile_data,
+                    3 => self.s.bg_tmap,
+                    2 => self.s.obj_size,
+                    1 => self.s.obj_en,
+                    0 => self.s.bg_en,
+                }
+            }
+            0x41 => {
+                read_bitfield! {
+                    val,
+                    6 => self.s.coincidence_interrupt,
+                    5 => self.s.oam_interrupt,
+                    4 => self.s.vblank_interrupt,
+                    3 => self.s.hblank_interrupt,
+                }
+            }
             0x47 => self.s.bg_palette = val.into(),
             0x48 => self.s.o0_palette = val.into(),
             0x49 => self.s.o1_palette = val.into(),
@@ -238,20 +289,6 @@ fn to_flag(val: bool, idx: usize) -> u8 {
     }
 }
 
-fn to_bitfield(flags: &[(bool, usize)]) -> u8 {
-    let mut res = 0;
-    for (val, idx) in flags.iter() {
-        res |= to_flag(*val, *idx);
-    }
-    res
-}
-
 fn from_flag(val: u8, idx: usize) -> bool {
     (val & (1u8 << idx)) != 0
-}
-
-fn from_bitfield(val: u8, flags: &mut [(&mut bool, usize)]) {
-    for (flag, idx) in flags.iter_mut() {
-        **flag = from_flag(val, *idx);
-    }
 }
