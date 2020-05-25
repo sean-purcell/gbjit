@@ -123,18 +123,18 @@ impl Components {
     }
 
     fn read(&mut self, addr: u16) -> u8 {
-        let (devices, bus) = self.device_wrapper();
-        bus.read(&devices, addr)
+        let (mut devices, bus) = self.device_wrapper();
+        bus.read(&mut devices, addr)
     }
 
     fn do_write(&mut self, addr: u16, val: u8) {
-        let (devices, bus) = self.device_wrapper();
-        bus.write(&devices, addr, val)
+        let (mut devices, bus) = self.device_wrapper();
+        bus.write(&mut devices, addr, val)
     }
 
     fn map_page(&mut self, addr: u16) -> (PageStatus, &[u8]) {
-        let (devices, bus) = self.device_wrapper();
-        bus.map_page(&devices, addr)
+        let (mut devices, bus) = self.device_wrapper();
+        bus.map_page(&mut devices, addr)
     }
 
     fn write(&mut self, addr: u16, val: u8) {

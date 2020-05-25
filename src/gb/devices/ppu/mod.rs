@@ -9,6 +9,7 @@ use crate::gb::bus::Bus;
 use super::EventCycle;
 
 mod frame;
+mod render;
 
 pub use frame::*;
 
@@ -22,9 +23,19 @@ enum Mode {
     Render,
 }
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default)]
+struct BwPalette(u8);
+
+impl From<u8> for BwPalette {
+    fn from(v: u8) -> Self {
+        BwPalette(v)
+    }
+}
+
 #[derive(Debug, Default, Copy, Clone)]
 struct Settings {
     enabled: bool,
+    coincidence_interrupt: bool,
     oam_interrupt: bool,
     vblank_interrupt: bool,
     hblank_interrupt: bool,
@@ -32,6 +43,10 @@ struct Settings {
     scroll_xy: (u8, u8),
     compare_line: u8,
     window_xy: (u8, u8),
+
+    bg_palette: BwPalette,
+    o0_palette: BwPalette,
+    o1_palette: BwPalette,
 }
 
 pub struct Ppu {
@@ -154,18 +169,14 @@ impl Ppu {
         };
     }
 
-    fn render_line(&mut self, _bus: &mut Bus) -> Scanline {
-        let mut line = empty_scanline();
-
-        for (i, col) in line.iter_mut().enumerate() {
-            *col = Colour(i as u8, 255, 255);
-        }
-
-        line
-    }
-
     pub fn scanline(&self) -> u8 {
-        self.line
+        match self.mode {
+            Mode::Hblank | Mode::Oam | Mode::Render => self.line,
+            Mode::Vblank => {
+                let mode_cycles = self.cycles.cycle() - self.mode_started;
+                144 + (mode_cycles / 456) as u8
+            }
+        }
     }
 
     pub fn take_frame(&mut self) -> Option<Box<Frame>> {
@@ -174,5 +185,73 @@ impl Ppu {
 
     pub fn next_frame_end(&self) -> EventCycle {
         self.frame_started + FRAME_TIME
+    }
+
+    pub fn read(&mut self, offset: u8) -> u8 {
+        match offset {
+            0x41 => {
+                to_bitfield(&[
+                    (self.s.coincidence_interrupt, 6),
+                    (self.s.oam_interrupt, 5),
+                    (self.s.vblank_interrupt, 4),
+                    (self.s.hblank_interrupt, 3),
+                    (self.s.compare_line == self.scanline(), 2),
+                ]) | self.mode.id()
+            }
+            0x44 => self.scanline(),
+            0x47 => self.s.bg_palette.0,
+            0x48 => self.s.o0_palette.0,
+            0x49 => self.s.o1_palette.0,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn write(&mut self, offset: u8, val: u8) {
+        match offset {
+            0x41 => from_bitfield(
+                val,
+                &mut [
+                    (&mut self.s.coincidence_interrupt, 6),
+                    (&mut self.s.oam_interrupt, 5),
+                    (&mut self.s.vblank_interrupt, 4),
+                    (&mut self.s.hblank_interrupt, 3),
+                ],
+            ),
+            0x47 => self.s.bg_palette = val.into(),
+            0x48 => self.s.o0_palette = val.into(),
+            0x49 => self.s.o1_palette = val.into(),
+            0x44 => log::warn!(
+                "Attempted to write {:02x} to RO PPU reg 0xff{:02x}",
+                val,
+                offset
+            ),
+            _ => unreachable!(),
+        }
+    }
+}
+
+fn to_flag(val: bool, idx: usize) -> u8 {
+    if val {
+        1u8 << idx
+    } else {
+        0
+    }
+}
+
+fn to_bitfield(flags: &[(bool, usize)]) -> u8 {
+    let mut res = 0;
+    for (val, idx) in flags.iter() {
+        res |= to_flag(*val, *idx);
+    }
+    res
+}
+
+fn from_flag(val: u8, idx: usize) -> bool {
+    (val & (1u8 << idx)) != 0
+}
+
+fn from_bitfield(val: u8, flags: &mut [(&mut bool, usize)]) {
+    for (flag, idx) in flags.iter_mut() {
+        **flag = from_flag(val, *idx);
     }
 }

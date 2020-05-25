@@ -18,10 +18,10 @@ impl<'a> BusWrapper<'a> {
     }
 
     pub fn read(&mut self, addr: u16) -> u8 {
-        self.bus.read(&self.devices, addr)
+        self.bus.read(&mut self.devices, addr)
     }
 
     pub fn write(&mut self, addr: u16, val: u8) {
-        self.bus.write(&self.devices, addr, val)
+        self.bus.write(&mut self.devices, addr, val)
     }
 }
