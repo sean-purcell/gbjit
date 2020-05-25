@@ -36,7 +36,7 @@ impl Io {
         offset: u8,
     ) -> &'d mut dyn Device {
         match offset {
-            0x41 | 0x44 | 0x47 | 0x48 | 0x49 => devices.ppu,
+            0x40..=0x45 | 0x47..=0x49 => devices.ppu,
             _ => self,
         }
     }

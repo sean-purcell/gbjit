@@ -32,15 +32,39 @@ impl From<u8> for BwPalette {
     }
 }
 
+gen_binary_enum! (TileMap, u16,
+    Lo => 0x9800,
+    Hi => 0x9c00,
+);
+
+gen_binary_enum! (TileData, u16,
+    Lo => 0x8000,
+    Hi => 0x8800,
+);
+
+impl TileData {
+    fn map(self, idx: u8) -> u16 {
+        match self {
+            TileData::Lo => self.val() + (idx as u16) * 16,
+            TileData::Hi => self.val() + (idx as i8 as u16) * 16,
+        }
+    }
+}
+
+gen_binary_enum! (ObjSize, (u8, u8),
+    Small => (8, 8),
+    Big => (8, 16),
+);
+
 #[derive(Debug, Default, Copy, Clone)]
 struct Settings {
     enabled: bool,
 
-    window_tmap: bool,
+    window_tmap: TileMap,
     window_en: bool,
-    tile_data: bool,
-    bg_tmap: bool,
-    obj_size: bool,
+    tile_data: TileData,
+    bg_tmap: TileMap,
+    obj_size: ObjSize,
     obj_en: bool,
     bg_en: bool,
 
@@ -197,15 +221,6 @@ impl Ppu {
     }
 
     pub fn read(&mut self, offset: u8) -> u8 {
-        macro_rules! write_bitfield {
-            { $( $idx:expr => $field:expr, )* } => {
-                (
-                $(
-                    to_flag($field, $idx) |
-                )*
-                0)
-            }
-        }
         match offset {
             0x40 => {
                 write_bitfield! {
@@ -229,7 +244,10 @@ impl Ppu {
                         2 => self.s.compare_line == self.scanline(),
                     }
             }
+            0x42 => self.scroll_xy.0,
+            0x43 => self.scroll_xy.1,
             0x44 => self.scanline(),
+            0x45 => self.compare_line,
             0x47 => self.s.bg_palette.0,
             0x48 => self.s.o0_palette.0,
             0x49 => self.s.o1_palette.0,
@@ -238,13 +256,6 @@ impl Ppu {
     }
 
     pub fn write(&mut self, offset: u8, val: u8) {
-        macro_rules! read_bitfield {
-            { $val:expr, $( $idx:expr => $field:expr, )* } => {{
-                $(
-                    $field = from_flag($val, $idx);
-                )*
-            }}
-        }
         match offset {
             0x40 => {
                 read_bitfield! {
@@ -268,6 +279,9 @@ impl Ppu {
                     3 => self.s.hblank_interrupt,
                 }
             }
+            0x42 => self.scroll_xy.0 = val,
+            0x43 => self.scroll_xy.1 = val,
+            0x45 => self.compare_line = val,
             0x47 => self.s.bg_palette = val.into(),
             0x48 => self.s.o0_palette = val.into(),
             0x49 => self.s.o1_palette = val.into(),
