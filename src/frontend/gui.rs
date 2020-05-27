@@ -67,6 +67,7 @@ pub fn run(args: Args) -> Result<(), Box<dyn StdError>> {
     let frame_time = Duration::from_secs_f64(0.01674270629);
 
     let mut run_frame = move |last_frame: &mut Instant| {
+        let start = Instant::now();
         debug!("Simulating GB");
         let frame = gb
             .run_frame()
@@ -105,6 +106,7 @@ pub fn run(args: Args) -> Result<(), Box<dyn StdError>> {
         surface.finish().expect("Surface failed to draw");
 
         *last_frame += frame_time;
+        debug!("Frame took {:#?}", Instant::now() - start);
     };
 
     event_loop.run(move |event, _, flow| {
