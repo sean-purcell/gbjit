@@ -36,9 +36,7 @@ mod ret;
 mod rst;
 mod storesp;
 
-use util::{
-    call_read, pop_state, push_state, repack_cpu_state, setup_limit_address, unpack_cpu_state,
-};
+use util::*;
 
 pub fn codegen_block(
     base_addr: u16,

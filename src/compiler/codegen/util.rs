@@ -39,8 +39,9 @@ pub fn repack_cpu_state(ops: &mut Assembler) {
         ; mov [rdi + 0x08], cx // de
         ; mov [rdi + 0x0a], dx // hl
         ; mov [rdi + 0x02], r13w // pc
-        ; shr r13d, 16
-        ; mov [rdi + 0x0c], r13b // intenable
+        ; mov r8d, r13d
+        ; shr r8d, 16
+        ; mov [rdi + 0x0c], r8b // intenable
     );
 }
 
@@ -312,7 +313,6 @@ pub fn push_reg(ops: &mut Assembler, bus: &ExternalBus, reg: Reg) {
         ; sub r12w, 1
         ; mov di, r12w
         ; mov sil, [rsp + 0x01]
-        ;; print_regs(ops)
         ;; call_write(ops, bus)
         ; sub r12w, 1
         ; mov di, r12w
@@ -336,6 +336,7 @@ pub fn pop_reg(ops: &mut Assembler, bus: &ExternalBus, reg: Reg) {
     );
 }
 
+#[allow(dead_code)]
 pub fn print_regs(ops: &mut Assembler) {
     dynasm!(ops
         ; push r13
