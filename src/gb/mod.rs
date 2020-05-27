@@ -124,10 +124,13 @@ impl Components {
 
     fn read(&mut self, addr: u16) -> u8 {
         let (mut devices, bus) = self.device_wrapper();
-        bus.read(&mut devices, addr)
+        let val = bus.read(&mut devices, addr);
+        log::trace!("READ  {:#06x} => {:02x}", addr, val);
+        val
     }
 
     fn do_write(&mut self, addr: u16, val: u8) {
+        log::trace!("WRITE {:#06x} <= {:02x}", addr, val);
         let (mut devices, bus) = self.device_wrapper();
         bus.write(&mut devices, addr, val)
     }
