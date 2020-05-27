@@ -56,8 +56,8 @@ impl Ppu {
             let b0 = vram.read(addr);
             let b1 = vram.read(addr + 1);
 
-            let colour_idx = if b0 & (1u8 << col) != 0 { 1 } else { 0 }
-                | if b1 & (1u8 << col) != 0 { 2 } else { 0 };
+            let colour_idx = if b0 & (0x80u8 >> col) != 0 { 1 } else { 0 }
+                | if b1 & (0x80u8 >> col) != 0 { 2 } else { 0 };
 
             *px = s.bg_palette.map(colour_idx);
 
