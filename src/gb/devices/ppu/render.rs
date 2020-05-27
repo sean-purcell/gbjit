@@ -1,3 +1,5 @@
+use log::*;
+
 use crate::gb::bus::{Bus, Module};
 
 use super::*;
@@ -29,13 +31,22 @@ impl Ppu {
 
         let y = s.scroll_xy.1.wrapping_add(self.line);
 
+        trace!(
+            "Rendering bg line, scroll: {:?}, tile data: {:?}, tile map: {:?}, palette: {:?}",
+            s.scroll_xy,
+            s.tile_data,
+            s.bg_tmap,
+            s.bg_palette
+        );
+
         for (i, px) in line.iter_mut().enumerate() {
             let x = s.scroll_xy.0.wrapping_add(i as u8);
 
             let tile_xy = (x / 8, y / 8);
 
             let tile_idx = (tile_xy.0 as u16) + (tile_xy.1 as u16) * 32;
-            let tile_val = vram.read(tmap.wrapping_add(tile_idx));
+            let tile_val_addr = tmap.wrapping_add(tile_idx);
+            let tile_val = vram.read(tile_val_addr);
             let tile_addr = tdata.map(tile_val);
 
             let (col, row) = (x % 8, y % 8);
@@ -48,6 +59,18 @@ impl Ppu {
                 | if b1 & (1u8 << col) != 0 { 2 } else { 0 };
 
             *px = s.bg_palette.map(colour_idx);
+
+            trace!(
+                "bg px {:3?} => {:3?}, tile {:2?} ({:#06x?}) => {:02x?} ({:#06x?}), offset: {:1?} colour: {}",
+                (i, self.line),
+                (x, y),
+                tile_xy,
+                tile_val_addr,
+                tile_val,
+                tile_addr,
+                (col, row),
+                colour_idx,
+            )
         }
 
         line

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::VecDeque;
+use std::fmt::{self, Debug};
 use std::rc::Rc;
 
 use derive_more::{From, Into};
@@ -25,17 +26,17 @@ enum Mode {
     Render,
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Default, From, Into)]
+#[derive(PartialEq, Eq, Copy, Clone, Default, From, Into)]
 struct BwPalette(u8);
 
 impl BwPalette {
     fn map(self, idx: u8) -> Colour {
         let val = (self.0 >> (idx * 2)) & 3;
         match val {
-            0 => Colour(0, 0, 0),
-            1 => Colour(85, 85, 85),
-            2 => Colour(170, 170, 170),
-            3 => Colour(255, 255, 255),
+            0 => Colour(255, 255, 255),
+            1 => Colour(170, 170, 170),
+            2 => Colour(85, 85, 85),
+            3 => Colour(0, 0, 0),
             _ => unreachable!(),
         }
     }
@@ -46,6 +47,17 @@ impl BwPalette {
         } else {
             Some(self.map(idx))
         }
+    }
+}
+
+impl Debug for BwPalette {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut tup = f.debug_tuple("BwPalette");
+
+        for c in (0..=3).map(|x| (self.0 >> (x * 2)) & 3) {
+            tup.field(&c);
+        }
+        tup.finish()
     }
 }
 
@@ -261,13 +273,13 @@ impl Ppu {
                         2 => self.s.compare_line == self.scanline(),
                     }
             }
-            0x42 => self.s.scroll_xy.0,
-            0x43 => self.s.scroll_xy.1,
+            0x42 => self.s.scroll_xy.1,
+            0x43 => self.s.scroll_xy.0,
             0x44 => self.scanline(),
             0x45 => self.s.compare_line,
-            0x47 => self.s.bg_palette.0,
-            0x48 => self.s.o0_palette.0,
-            0x49 => self.s.o1_palette.0,
+            0x47 => self.s.bg_palette.into(),
+            0x48 => self.s.o0_palette.into(),
+            0x49 => self.s.o1_palette.into(),
             _ => unreachable!(),
         }
     }
@@ -296,8 +308,8 @@ impl Ppu {
                     3 => self.s.hblank_interrupt,
                 }
             }
-            0x42 => self.s.scroll_xy.0 = val,
-            0x43 => self.s.scroll_xy.1 = val,
+            0x42 => self.s.scroll_xy.1 = val,
+            0x43 => self.s.scroll_xy.0 = val,
             0x45 => self.s.compare_line = val,
             0x47 => self.s.bg_palette = val.into(),
             0x48 => self.s.o0_palette = val.into(),
