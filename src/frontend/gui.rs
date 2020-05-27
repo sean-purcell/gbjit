@@ -154,7 +154,12 @@ pub fn run(args: Args) -> Result<(), Box<dyn StdError>> {
 
 pub fn transcribe_frame(frame: &Frame) -> [GlColour; FRAME_ROWS * FRAME_COLS] {
     let mut result = [(0, 0, 0); FRAME_ROWS * FRAME_COLS];
-    for (src, dst) in frame.iter().flat_map(|x| x.iter()).zip(result.iter_mut()) {
+    for (src, dst) in frame
+        .iter()
+        .rev()
+        .flat_map(|x| x.iter())
+        .zip(result.iter_mut())
+    {
         *dst = (src.0, src.1, src.2);
     }
     result
