@@ -80,10 +80,10 @@ pub(super) fn generate(
             dynasm!(ops
                 ; test ah, BYTE (1u8 << b) as _
                 ; jz >zero
-                ; mov ah, 0x50
+                ; mov ah, 0x10
                 ; jmp >end
                 ; zero:
-                ; mov ah, 0x10
+                ; mov ah, 0x50
                 ; end:
                 ; and BYTE [rsp + 0x02], BYTE 1
                 ; or [rsp + 0x02], ah
