@@ -30,6 +30,15 @@ use crate::{
 type GlColour = (u8, u8, u8);
 
 pub fn run(args: Args) -> Result<(), Box<dyn StdError>> {
+    let mut gb = Gb::new(
+        &args.bios,
+        &args.rom,
+        ExecutorOptions {
+            trace_pc: args.trace_pc,
+            disassembly_logfile: args.disassembly_logfile.clone(),
+        },
+    )?;
+
     let event_loop = EventLoop::new();
     let wb = WindowBuilder::new()
         .with_inner_size(LogicalSize::new(
@@ -52,15 +61,6 @@ pub fn run(args: Args) -> Result<(), Box<dyn StdError>> {
         BufferType::ArrayBuffer,
         FRAME_ROWS * FRAME_COLS * mem::size_of::<GlColour>(),
         BufferMode::Persistent,
-    )?;
-
-    let mut gb = Gb::new(
-        &args.bios,
-        &args.rom,
-        ExecutorOptions {
-            trace_pc: args.trace_pc,
-            disassembly_logfile: args.disassembly_logfile.clone(),
-        },
     )?;
 
     let mut last_frame = Instant::now();
