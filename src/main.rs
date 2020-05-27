@@ -48,6 +48,10 @@ pub struct Args {
     /// Only advance the frame when the 'n' key is hit
     #[structopt(short, long)]
     wait: bool,
+
+    /// Whether to run in headless mode, where the gb is emulated with no IO, just to generate logs
+    #[structopt(short, long)]
+    headless: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -55,7 +59,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::from_args();
 
-    frontend::gui::run(args)
+    if args.headless {
+        frontend::headless::run(args)
+    } else {
+        frontend::gui::run(args)
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
