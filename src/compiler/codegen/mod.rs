@@ -579,3 +579,13 @@ extern "sysv64" fn log_state(state: *const c_void, opcode: u8, cycle: u64) {
         cycle
     );
 }
+
+extern "sysv64" fn log_registers(regs: *const u64) {
+    let names = ["rax", "rbx", "rcx", "rdx", "rdi", "rsi", "r12", "r13"];
+    let regs = unsafe { std::slice::from_raw_parts(regs, names.len()) };
+
+    log::trace!("Print registers");
+    for (name, reg) in names.iter().zip(regs.iter()) {
+        log::trace!("Reg {}: {:016x}", name, reg);
+    }
+}

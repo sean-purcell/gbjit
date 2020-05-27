@@ -312,6 +312,7 @@ pub fn push_reg(ops: &mut Assembler, bus: &ExternalBus, reg: Reg) {
         ; sub r12w, 1
         ; mov di, r12w
         ; mov sil, [rsp + 0x01]
+        ;; print_regs(ops)
         ;; call_write(ops, bus)
         ; sub r12w, 1
         ; mov di, r12w
@@ -332,5 +333,29 @@ pub fn pop_reg(ops: &mut Assembler, bus: &ExternalBus, reg: Reg) {
         ; add r12w, 1
         ; mov di, [rsp + 0x00]
         ;; store_reg(ops, reg)
+    );
+}
+
+pub fn print_regs(ops: &mut Assembler) {
+    dynasm!(ops
+        ; push r13
+        ; push r12
+        ; push rsi
+        ; push rdi
+        ; push rdx
+        ; push rcx
+        ; push rbx
+        ; push rax
+        ; mov rdi, rsp
+        ; mov rax, QWORD super::log_registers as _
+        ; call rax
+        ; pop rax
+        ; pop rbx
+        ; pop rcx
+        ; pop rdx
+        ; pop rdi
+        ; pop rsi
+        ; pop r12
+        ; pop r13
     );
 }
