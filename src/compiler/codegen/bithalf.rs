@@ -9,13 +9,13 @@ fn generate_shift(ops: &mut Assembler, cmd: BitCommand, set_zero: bool) {
                     ; mov al, ah
                     ; $o al, 1
                     ; lahf
-                    ; and al, BYTE 1
+                    ; and ah, BYTE 1
                 );
                 if $set_zero {
                     dynasm!($ops
                         ; cmp al, BYTE 0
                         ; jne >noset
-                        ; or al, BYTE 0x40
+                        ; or ah, BYTE 0x40
                         ; noset:
                     );
                 }

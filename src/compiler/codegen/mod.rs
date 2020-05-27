@@ -570,7 +570,7 @@ extern "sysv64" fn log_state(state: *const c_void, opcode: u8, cycle: u64) {
     let state: &CpuState = unsafe { &*(state as *const CpuState) };
     let pc = state.pc;
     trace!(
-        "Executing instruction {:#04x?} at {:#06x?}, state: {:?}, cycle: {:?}",
+        "Executing instruction {:#04x?} at {:#06x?}, state: {:04x?}, cycle: {:?}",
         opcode,
         pc,
         state,
