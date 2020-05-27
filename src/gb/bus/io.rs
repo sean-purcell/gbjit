@@ -79,7 +79,7 @@ macro_rules! impl_device_fwd {
             fn read(&mut self, offset: u8) -> u8 {
                 let res = <$t>::$r(self, offset);
                 log::trace!(
-                    "IO read from {:3}, 0xff{:02x} => {:02x}",
+                    "IO read from {:>3}, 0xff{:02x} => {:02x}",
                     stringify!($t),
                     offset,
                     res
@@ -89,7 +89,7 @@ macro_rules! impl_device_fwd {
 
             fn write(&mut self, offset: u8, val: u8) {
                 log::trace!(
-                    "IO write to  {:3}, 0xff{:02x} <= {:02x}",
+                    "IO write to  {:>3}, 0xff{:02x} <= {:02x}",
                     stringify!($t),
                     offset,
                     val
