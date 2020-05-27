@@ -67,15 +67,15 @@ gen_binary_enum! (TileMap, u16,
 );
 
 gen_binary_enum! (TileData, u16,
-    Lo => 0x8000,
     Hi => 0x8800,
+    Lo => 0x8000,
 );
 
 impl TileData {
     fn map(self, idx: u8) -> u16 {
         match self {
-            TileData::Lo => self.val() + (idx as u16) * 16,
             TileData::Hi => self.val() + (idx as i8 as u16) * 16,
+            TileData::Lo => self.val() + (idx as u16) * 16,
         }
     }
 }
