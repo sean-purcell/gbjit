@@ -1,10 +1,17 @@
 use std::error::Error as StdError;
 use std::mem;
+use std::time::{Duration, Instant};
 
 use glium::{
     buffer::{Buffer, BufferMode, BufferType},
     framebuffer::SimpleFrameBuffer,
-    glutin::{dpi::LogicalSize, event_loop::EventLoop, window::WindowBuilder, ContextBuilder},
+    glutin::{
+        dpi::LogicalSize,
+        event::{ElementState, Event, KeyboardInput, StartCause, VirtualKeyCode, WindowEvent},
+        event_loop::{ControlFlow, EventLoop},
+        window::WindowBuilder,
+        ContextBuilder,
+    },
     texture::Texture2d,
     uniforms::MagnifySamplerFilter,
     BlitTarget, Display, Rect, Surface,
@@ -22,7 +29,7 @@ use crate::{
 
 type GlColour = (u8, u8, u8);
 
-pub fn run(args: &Args) -> Result<(), Box<dyn StdError>> {
+pub fn run(args: Args) -> Result<(), Box<dyn StdError>> {
     let event_loop = EventLoop::new();
     let wb = WindowBuilder::new()
         .with_inner_size(LogicalSize::new(
@@ -56,9 +63,10 @@ pub fn run(args: &Args) -> Result<(), Box<dyn StdError>> {
         },
     )?;
 
-    event_loop.run(move |event, _, flow| {
-        debug!("Event: {:?}", event);
-        debug!("Control Flow: {:?}", flow);
+    let mut last_frame = Instant::now();
+    let frame_time = Duration::from_secs_f64(0.01674270629);
+
+    let mut run_frame = move |last_frame: &mut Instant| {
         debug!("Simulating GB");
         let frame = gb
             .run_frame()
@@ -95,6 +103,50 @@ pub fn run(args: &Args) -> Result<(), Box<dyn StdError>> {
             MagnifySamplerFilter::Nearest,
         );
         surface.finish().expect("Surface failed to draw");
+
+        *last_frame += frame_time;
+    };
+
+    event_loop.run(move |event, _, flow| {
+        debug!("Event: {:?}", event);
+
+        match event {
+            Event::NewEvents(StartCause::ResumeTimeReached {
+                start: _,
+                requested_resume: _,
+            }) => {
+                if !args.wait {
+                    run_frame(&mut last_frame)
+                }
+            }
+            #[allow(deprecated)]
+            Event::WindowEvent {
+                window_id: _,
+                event:
+                    WindowEvent::KeyboardInput {
+                        device_id: _,
+                        input:
+                            KeyboardInput {
+                                scancode: _,
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::N),
+                                modifiers: _,
+                            },
+                        is_synthetic: false,
+                    },
+            } => {
+                if args.wait {
+                    run_frame(&mut last_frame)
+                }
+            }
+            _ => {}
+        }
+
+        if !args.wait {
+            *flow = ControlFlow::WaitUntil(last_frame + frame_time);
+        } else {
+            *flow = ControlFlow::Wait;
+        }
     });
 }
 

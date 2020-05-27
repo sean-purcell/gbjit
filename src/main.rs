@@ -44,6 +44,10 @@ pub struct Args {
         parse(try_from_str = parse_tuple)
     )]
     screen_dimensions: (u32, u32),
+
+    /// Only advance the frame when the 'n' key is hit
+    #[structopt(short, long)]
+    wait: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::from_args();
 
-    frontend::gui::run(&args)
+    frontend::gui::run(args)
 }
 
 #[derive(thiserror::Error, Debug)]
