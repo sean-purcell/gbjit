@@ -14,6 +14,7 @@ panic = "abort"
 [dependencies]
 anyhow = "1.0"
 capstone = "0.6"
+derive_more = "0.99"
 dynasm = "0.6"
 dynasmrt = "0.6"
 env_logger = "0.7"

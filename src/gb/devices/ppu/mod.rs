@@ -3,6 +3,8 @@
 use std::collections::VecDeque;
 use std::rc::Rc;
 
+use derive_more::{From, Into};
+
 use crate::compiler::CycleState;
 use crate::gb::bus::Bus;
 
@@ -23,12 +25,27 @@ enum Mode {
     Render,
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default, From, Into)]
 struct BwPalette(u8);
 
-impl From<u8> for BwPalette {
-    fn from(v: u8) -> Self {
-        BwPalette(v)
+impl BwPalette {
+    fn map(self, idx: u8) -> Colour {
+        let val = (self.0 >> (idx * 2)) & 3;
+        match val {
+            0 => Colour(0, 0, 0),
+            1 => Colour(85, 85, 85),
+            2 => Colour(170, 170, 170),
+            3 => Colour(255, 255, 255),
+            _ => unreachable!(),
+        }
+    }
+
+    fn map_obj(self, idx: u8) -> Option<Colour> {
+        if idx == 0 {
+            None
+        } else {
+            Some(self.map(idx))
+        }
     }
 }
 
@@ -244,10 +261,10 @@ impl Ppu {
                         2 => self.s.compare_line == self.scanline(),
                     }
             }
-            0x42 => self.scroll_xy.0,
-            0x43 => self.scroll_xy.1,
+            0x42 => self.s.scroll_xy.0,
+            0x43 => self.s.scroll_xy.1,
             0x44 => self.scanline(),
-            0x45 => self.compare_line,
+            0x45 => self.s.compare_line,
             0x47 => self.s.bg_palette.0,
             0x48 => self.s.o0_palette.0,
             0x49 => self.s.o1_palette.0,
@@ -279,9 +296,9 @@ impl Ppu {
                     3 => self.s.hblank_interrupt,
                 }
             }
-            0x42 => self.scroll_xy.0 = val,
-            0x43 => self.scroll_xy.1 = val,
-            0x45 => self.compare_line = val,
+            0x42 => self.s.scroll_xy.0 = val,
+            0x43 => self.s.scroll_xy.1 = val,
+            0x45 => self.s.compare_line = val,
             0x47 => self.s.bg_palette = val.into(),
             0x48 => self.s.o0_palette = val.into(),
             0x49 => self.s.o1_palette = val.into(),

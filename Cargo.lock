@@ -316,6 +316,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "0.99.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2127768764f1556535c01b5326ef94bd60ff08dcfbdc544d53e69ed155610f5d"
+dependencies = [
+ "proc-macro2 1.0.9",
+ "quote 1.0.3",
+ "syn",
+]
+
+[[package]]
 name = "dispatch"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -423,6 +434,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "capstone",
+ "derive_more",
  "dynasm",
  "dynasmrt",
  "env_logger",
