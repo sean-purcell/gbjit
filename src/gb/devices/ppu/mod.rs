@@ -3,6 +3,8 @@
 use std::collections::VecDeque;
 use std::rc::Rc;
 
+use
+
 use crate::compiler::CycleState;
 use crate::gb::bus::Bus;
 
@@ -25,6 +27,22 @@ enum Mode {
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Default)]
 struct BwPalette(u8);
+
+impl BwPalette {
+    fn
+}
+
+impl From<u8> for BwPalette {
+    fn from(v: u8) -> Self {
+        BwPalette(v)
+    }
+}
+
+impl From<BwPalette> for u8 {
+    fn from(v: BwPalette) -> Self {
+        v.0
+    }
+}
 
 impl From<u8> for BwPalette {
     fn from(v: u8) -> Self {
