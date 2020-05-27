@@ -71,12 +71,16 @@ where
                         "Compiled block {:?} at {:#06x?}, version {}",
                         id, base_addr, version
                     )?;
-                    for inst in code.instructions() {
+                    for (idx, inst) in code.instructions().iter().enumerate() {
                         match inst {
                             Ok(i) => writeln!(
                                 f,
-                                "{:<15?}, cycles {:2}/{:8?}, encoding: {:02x?}",
-                                i.cmd, i.cycles, i.alt_cycles, i.encoding
+                                "{:04x}: {:<50}, cycles {:2}/{:8}, encoding: {:02x?}",
+                                base_addr.wrapping_add(idx as u16),
+                                format!("{:?}", i.cmd),
+                                i.cycles,
+                                format!("{:?}", i.alt_cycles),
+                                i.encoding
                             ),
                             Err(bytes) => writeln!(f, "Incomplete {:02x?}", bytes),
                         }?;
