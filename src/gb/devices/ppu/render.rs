@@ -32,7 +32,8 @@ impl Ppu {
         let y = s.scroll_xy.1.wrapping_add(self.line);
 
         trace!(
-            "Rendering bg line, scroll: {:?}, tile data: {:?}, tile map: {:?}, palette: {:?}",
+            "Rendering bg line {:?}, scroll: {:?}, tile data: {:?}, tile map: {:?}, palette: {:?}",
+            self.line,
             s.scroll_xy,
             s.tile_data,
             s.bg_tmap,
