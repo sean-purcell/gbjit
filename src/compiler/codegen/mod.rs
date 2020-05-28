@@ -68,7 +68,7 @@ pub fn codegen_block(
                         labels: &labels,
                     },
                     bus,
-                    options.trace_pc,
+                    options,
                 ),
                 Err(bytes) => {
                     assemble_incomplete(&mut ops, bytes.as_slice(), label, pc, bus, oneoffs)
@@ -99,14 +99,7 @@ pub fn codegen_oneoffs(
     let labels: Vec<DynamicLabel> = insts.iter().map(|_| ops.new_dynamic_label()).collect();
 
     insts.iter().zip(labels.iter()).for_each(|(inst, label)| {
-        assemble_instruction(
-            &mut ops,
-            inst,
-            label,
-            AssemblyKind::Oneoff,
-            bus,
-            options.trace_pc,
-        );
+        assemble_instruction(&mut ops, inst, label, AssemblyKind::Oneoff, bus, options);
     });
 
     generate_offset_table(&mut ops, labels.as_slice());
@@ -130,13 +123,14 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
     dynasm!(ops
         ; -> block_start:
         ; push rbp
+        ; mov rbp, rsp
         ; mov [rsp - 0x08], r12
         ; mov [rsp - 0x10], r13
         ; mov [rsp - 0x18], r14
         ; mov [rsp - 0x20], r15
         ; mov [rsp - 0x28], rbx
         ; sub rsp, 0x60
-        ; mov rbp, rsi
+        ; mov [rsp + 0x10], rsi
         ;; setup_cycle_registers(ops)
         ;; unpack_cpu_state(ops)
         ;; setup_limit_address(ops)
@@ -212,7 +206,7 @@ fn assemble_instruction<'a>(
     label: &DynamicLabel,
     kind: AssemblyKind<'a>,
     bus: &ExternalBus,
-    trace_pc: bool,
+    options: &CompileOptions,
 ) -> AssemblyOffset {
     let offset = ops.offset();
     dynasm!(ops
@@ -233,17 +227,21 @@ fn assemble_instruction<'a>(
         }
     }
 
-    if trace_pc {
-        dynasm!(ops
-            ;; push_state(ops)
-            ; mov rdi, [rsp + 0x08]
-            ;; repack_cpu_state(ops)
-            ; mov rsi, inst.encoding[0] as _
-            ; mov rdx, [r14]
-            ; mov rax, QWORD log_state as _
-            ; call rax
-            ;; pop_state(ops)
-        );
+    if options.trace_pc {
+        if !options.std_logging {
+            dynasm!(ops
+                ;; push_state(ops)
+                ; mov rdi, [rsp + 0x08]
+                ;; repack_cpu_state(ops)
+                ; mov rsi, inst.encoding[0] as _
+                ; mov rdx, [r14]
+                ; mov rax, QWORD log_state as _
+                ; call rax
+                ;; pop_state(ops)
+            );
+        } else {
+            emit_std_logging_call(ops, inst, bus);
+        }
     }
 
     let generator: Generator = {
@@ -559,6 +557,26 @@ fn generate_invalid(
     Default::default()
 }
 
+fn emit_std_logging_call(ops: &mut Assembler, inst: &Instruction, bus: &ExternalBus) {
+    let buf: [u8; std::mem::size_of::<Command>()] = unsafe { std::mem::transmute(inst.cmd) };
+    dynasm!(ops
+        ; jmp >code
+        ; .align std::mem::align_of::<Command>()
+        ; cmd:
+        ; .bytes buf.iter()
+        ; code:
+        ;; push_state(ops)
+        ; mov rdi, [rsp + 0x08]
+        ;; repack_cpu_state(ops)
+        ; lea rsi, [<cmd]
+        ; mov rdx, QWORD bus.read as _
+        ; mov rcx, [rsp + 0x10]
+        ; mov rax, QWORD print_state_std as _
+        ; call rax
+        ;; pop_state(ops)
+    );
+}
+
 extern "sysv64" fn log_invalid(pc: u16, opcode: u8) {
     warn!(
         "Executing invalid instruction at {:#06x?}, opcode {:#04x?}",
@@ -566,8 +584,8 @@ extern "sysv64" fn log_invalid(pc: u16, opcode: u8) {
     );
 }
 
-extern "sysv64" fn log_state(state: *const c_void, opcode: u8, cycle: u64) {
-    let state: &CpuState = unsafe { &*(state as *const CpuState) };
+extern "sysv64" fn log_state(state: *const CpuState, opcode: u8, cycle: u64) {
+    let state: &CpuState = unsafe { &*state };
     let pc = state.pc;
     trace!(
         "Executing instruction {:#04x?} at {:#06x?}, state: {:04x?}, cycle: {:?}",
@@ -575,6 +593,38 @@ extern "sysv64" fn log_state(state: *const c_void, opcode: u8, cycle: u64) {
         pc,
         state,
         cycle
+    );
+}
+
+extern "sysv64" fn print_state_std(
+    state: *const CpuState,
+    cmd: *const Command,
+    read: extern "sysv64" fn(u16, *mut c_void) -> u8,
+    param: *mut c_void,
+) {
+    let state: &CpuState = unsafe { &*state };
+    let cmd: &Command = unsafe { &*cmd };
+    let flags = (state.af >> 8) as u8;
+    let fc = |b, c| if (flags & (1u8 << b)) != 0u8 { c } else { '-' };
+
+    let hl_val = read(state.hl, param);
+    let ppu_mode = read(0xff41, param) & 3;
+
+    println!(
+        "A: {:02x}, F: {}{}{}{}, BC: {:04x}, DE: {:04x}, HL: {:04x}, SP: {:04x}, (HL): {:02x}, ppu: {}. {:#06x}: {:?}",
+        state.af as u8,
+        fc(6, 'Z'),
+        fc(5, 'N'),
+        fc(4, 'H'),
+        fc(0, 'C'),
+        state.bc,
+        state.de,
+        state.hl,
+        state.sp,
+        hl_val,
+        ppu_mode,
+        state.pc,
+        cmd
     );
 }
 

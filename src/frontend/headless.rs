@@ -5,14 +5,7 @@ use log::*;
 use crate::{executor::ExecutorOptions, gb::Gb, Args};
 
 pub fn run(args: Args) -> Result<(), Box<dyn StdError>> {
-    let mut gb = Gb::new(
-        &args.bios,
-        &args.rom,
-        ExecutorOptions {
-            trace_pc: args.trace_pc,
-            disassembly_logfile: args.disassembly_logfile.clone(),
-        },
-    )?;
+    let mut gb = Gb::new(&args.bios, &args.rom, ExecutorOptions::new(&args))?;
 
     let mut i = 0;
     loop {

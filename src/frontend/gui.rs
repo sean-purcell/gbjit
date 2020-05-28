@@ -30,14 +30,7 @@ use crate::{
 type GlColour = (u8, u8, u8);
 
 pub fn run(args: Args) -> Result<(), Box<dyn StdError>> {
-    let mut gb = Gb::new(
-        &args.bios,
-        &args.rom,
-        ExecutorOptions {
-            trace_pc: args.trace_pc,
-            disassembly_logfile: args.disassembly_logfile.clone(),
-        },
-    )?;
+    let mut gb = Gb::new(&args.bios, &args.rom, ExecutorOptions::new(&args))?;
 
     let event_loop = EventLoop::new();
     let wb = WindowBuilder::new()

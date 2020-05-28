@@ -86,7 +86,7 @@ pub fn pop_state(ops: &mut Assembler) {
 pub fn call_read(ops: &mut Assembler, bus: &ExternalBus) {
     dynasm!(ops
         ;; push_state(ops)
-        ; mov rsi, rbp
+        ; mov rsi, [rsp + 0x10]
         ; mov rax, QWORD bus.read as _
         ; call rax
         ; mov ah, al
@@ -97,7 +97,7 @@ pub fn call_read(ops: &mut Assembler, bus: &ExternalBus) {
 pub fn call_write(ops: &mut Assembler, bus: &ExternalBus) {
     dynasm!(ops
         ;; push_state(ops)
-        ; mov rdx, rbp
+        ; mov rdx, [rsp + 0x10]
         ; mov rax, QWORD bus.write as _
         ; call rax
         ;; pop_state(ops)

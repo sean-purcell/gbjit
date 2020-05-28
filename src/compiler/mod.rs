@@ -2,6 +2,8 @@ use std::{fmt, io, iter};
 
 use dynasmrt::DynasmError;
 
+use crate::Args;
+
 mod code_block;
 pub mod codegen;
 mod cycle_state;
@@ -49,11 +51,15 @@ impl From<DynasmError> for CompileError {
 #[derive(Debug, Clone, Copy)]
 pub struct CompileOptions {
     pub trace_pc: bool,
+    pub std_logging: bool,
 }
 
 impl Default for CompileOptions {
     fn default() -> Self {
-        CompileOptions { trace_pc: false }
+        CompileOptions {
+            trace_pc: false,
+            std_logging: false,
+        }
     }
 }
 
@@ -112,4 +118,13 @@ pub fn decode(data: &[u8]) -> Vec<Instruction> {
             ))
         })
         .collect()
+}
+
+impl CompileOptions {
+    pub fn new(args: &Args) -> Self {
+        CompileOptions {
+            trace_pc: args.trace_pc,
+            std_logging: args.std_logging,
+        }
+    }
 }

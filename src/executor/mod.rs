@@ -6,7 +6,10 @@ use std::io::{BufWriter, Write};
 
 use anyhow::Error;
 
-use crate::compiler::{compile, CodeBlock, CompileOptions, ExternalBus, OneoffTable};
+use crate::{
+    compiler::{compile, CodeBlock, CompileOptions, ExternalBus, OneoffTable},
+    Args,
+};
 
 struct CacheEntry<T> {
     version: u64,
@@ -14,7 +17,7 @@ struct CacheEntry<T> {
 }
 
 pub struct ExecutorOptions {
-    pub trace_pc: bool,
+    pub compile_options: CompileOptions,
     pub disassembly_logfile: Option<String>,
 }
 
@@ -31,9 +34,6 @@ where
     I: Copy + Eq + Hash + Debug,
 {
     pub fn new(bus: ExternalBus<T>, options: ExecutorOptions) -> Result<Self, Error> {
-        let compile_options = CompileOptions {
-            trace_pc: options.trace_pc,
-        };
         let logfile = options
             .disassembly_logfile
             .map(|path| -> Result<BufWriter<File>, Error> {
@@ -41,9 +41,9 @@ where
             })
             .transpose()?;
         Ok(Executor {
-            oneoffs: OneoffTable::generate(&bus, &compile_options)?,
+            oneoffs: OneoffTable::generate(&bus, &options.compile_options)?,
             bus,
-            compile_options,
+            compile_options: options.compile_options,
             cache: HashMap::new(),
             logfile,
         })
@@ -106,6 +106,15 @@ where
                 let e = v.insert(create_entry()?);
                 Ok(&e.code)
             }
+        }
+    }
+}
+
+impl ExecutorOptions {
+    pub fn new(args: &Args) -> Self {
+        ExecutorOptions {
+            compile_options: CompileOptions::new(args),
+            disassembly_logfile: args.disassembly_logfile.clone(),
         }
     }
 }

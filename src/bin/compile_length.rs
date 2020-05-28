@@ -26,7 +26,10 @@ pub fn main() {
         .type_erased()
     };
 
-    let options = CompileOptions { trace_pc: false };
+    let options = CompileOptions {
+        trace_pc: false,
+        std_logging: false,
+    };
 
     let oneoffs = OneoffTable::generate_raw(&bus, &options).unwrap();
 

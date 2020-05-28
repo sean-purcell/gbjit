@@ -5,7 +5,10 @@
 )]
 #![feature(proc_macro_hygiene)]
 
+mod args;
 pub mod compiler;
 pub mod cpu_state;
 pub mod executor;
 pub mod gb;
+
+pub use args::Args;

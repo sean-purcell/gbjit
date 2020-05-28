@@ -175,3 +175,14 @@ impl Instruction {
         self.encoding.len() as u16
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::Command;
+
+    #[test]
+    fn check_cmd_size() {
+        assert_eq!(std::mem::size_of::<Command>(), 10);
+        assert_eq!(std::mem::align_of::<Command>(), 2);
+    }
+}
