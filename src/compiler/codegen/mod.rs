@@ -1,7 +1,11 @@
 use std::ffi::c_void;
+use std::mem;
 
 use dynasm::dynasm;
-use dynasmrt::x64::Assembler;
+use dynasmrt::{
+    relocations::{Relocation, RelocationSize},
+    x64::{Assembler, X64Relocation},
+};
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer};
 use log::*;
 
@@ -47,21 +51,30 @@ pub fn codegen_block(
 ) -> Result<(ExecutableBuffer, AssemblyOffset, Vec<AssemblyOffset>), CompileError> {
     let mut ops = Assembler::new()?;
 
-    let entry = generate_boilerplate(&mut ops);
+    let size = insts.len();
 
-    let labels: Vec<DynamicLabel> = insts.iter().map(|_| ops.new_dynamic_label()).collect();
+    dynasm!(ops
+        ; -> block_start:
+    );
+
+    let labels = generate_jump_table(&mut ops, size);
+    let cmd_labels = generate_cmd_table(&mut ops, insts, options);
+
+    let entry = generate_boilerplate(&mut ops);
+    generate_dynamic_jump_routine(&mut ops, base_addr, size);
 
     let offsets = insts
         .iter()
-        .zip(labels.iter())
+        .zip(labels.iter().zip(cmd_labels.iter()))
         .enumerate()
-        .map(|(idx, (inst, label))| {
+        .map(|(idx, (inst, (label, cmd_label)))| {
             let pc = base_addr.wrapping_add(idx as u16);
             match inst {
                 Ok(i) => assemble_instruction(
                     &mut ops,
                     i,
                     label,
+                    *cmd_label,
                     AssemblyKind::Static {
                         base_addr,
                         pc,
@@ -79,8 +92,6 @@ pub fn codegen_block(
 
     generate_overrun(&mut ops);
 
-    generate_dynamic_jump_table(&mut ops, base_addr, labels.as_slice());
-
     ops.commit()
         .expect("No assembly errors should have occurred");
 
@@ -96,13 +107,26 @@ pub fn codegen_oneoffs(
 ) -> Result<(ExecutableBuffer, AssemblyOffset), CompileError> {
     let mut ops = Assembler::new()?;
 
-    let labels: Vec<DynamicLabel> = insts.iter().map(|_| ops.new_dynamic_label()).collect();
+    let size = insts.len();
+    let labels = generate_jump_table(&mut ops, size);
 
-    insts.iter().zip(labels.iter()).for_each(|(inst, label)| {
-        assemble_instruction(&mut ops, inst, label, AssemblyKind::Oneoff, bus, options);
-    });
+    let result_insts: Vec<_> = insts.iter().map(|i| Ok(i.clone())).collect();
+    let cmd_labels = generate_cmd_table(&mut ops, result_insts.as_slice(), options);
 
-    generate_offset_table(&mut ops, labels.as_slice());
+    insts
+        .iter()
+        .zip(labels.iter().zip(cmd_labels.iter()))
+        .for_each(|(inst, (label, cmd_label))| {
+            assemble_instruction(
+                &mut ops,
+                inst,
+                label,
+                *cmd_label,
+                AssemblyKind::Oneoff,
+                bus,
+                options,
+            );
+        });
 
     let table_offset = ops
         .labels()
@@ -121,7 +145,6 @@ fn generate_boilerplate(ops: &mut Assembler) -> AssemblyOffset {
     // Entry has type: fn (cpu_state: *mut CpuState, target_pc: u64, parameter: *mut c_void)
     let offset = ops.offset();
     dynasm!(ops
-        ; -> block_start:
         ; push rbp
         ; mov rbp, rsp
         ; mov [rsp - 0x08], r12
@@ -204,6 +227,7 @@ fn assemble_instruction<'a>(
     ops: &mut Assembler,
     inst: &Instruction,
     label: &DynamicLabel,
+    cmd_label: Option<DynamicLabel>,
     kind: AssemblyKind<'a>,
     bus: &ExternalBus,
     options: &CompileOptions,
@@ -228,19 +252,11 @@ fn assemble_instruction<'a>(
     }
 
     if options.trace_pc {
+        let cmd_label = cmd_label.expect("Trace pc enabled but no cmd label");
         if !options.std_logging {
-            dynasm!(ops
-                ;; push_state(ops)
-                ; mov rdi, [rsp + 0x08]
-                ;; repack_cpu_state(ops)
-                ; mov rsi, inst.encoding[0] as _
-                ; mov rdx, [r14]
-                ; mov rax, QWORD log_state as _
-                ; call rax
-                ;; pop_state(ops)
-            );
+            emit_pc_trace_call(ops, cmd_label, inst);
         } else {
-            emit_std_logging_call(ops, inst, bus);
+            emit_std_logging_call(ops, cmd_label, bus);
         }
     }
 
@@ -351,10 +367,8 @@ fn assemble_incomplete(
         ; shl rdi, 3
         ; mov r8, QWORD table.table() as _
         ; mov r9, QWORD table.base() as _
-        ; add rdi, r8
-        ; mov rsi, [r8]
-        ; add rsi, r9
-        ; call rsi
+        ; add r8, rdi
+        ; call r8
         ;; check_cycle_limit(ops)
         ; jmp -> jump
     );
@@ -492,44 +506,67 @@ fn generate_dynamic_jump_epilogue(ops: &mut Assembler, cycles: u8) {
     );
 }
 
-fn generate_dynamic_jump_table(ops: &mut Assembler, base_addr: u16, labels: &[DynamicLabel]) {
+fn generate_dynamic_jump_routine(ops: &mut Assembler, base_addr: u16, size: usize) {
     dynasm!(ops
         ; -> jump:
         ; mov di, r13w
         ; sub di, WORD base_addr as _
-        ; cmp di, WORD labels.len() as _
+        ; cmp di, WORD size as _
         ; jae -> exit
         ; and rdi, DWORD 0xffff as _
         ; shl rdi, 3
         ; lea r8, [-> jump_table]
         ; add r8, rdi
-        ; mov rsi, [r8]
-        ; lea r9, [-> block_start]
-        ; add rsi, r9
-        ; jmp rsi
+        ; jmp r8
     );
-
-    generate_offset_table(ops, labels);
 }
 
-fn generate_offset_table(ops: &mut Assembler, labels: &[DynamicLabel]) {
+fn generate_jump_table(ops: &mut Assembler, size: usize) -> Vec<DynamicLabel> {
     dynasm!(ops
+        ; .align 8
         ; -> jump_table:
     );
 
-    let offsets: Vec<AssemblyOffset> = {
-        let registry = ops.labels();
-        labels
-            .iter()
-            .map(|x| registry.resolve_dynamic(*x).unwrap())
-            .collect()
-    };
+    (0..size)
+        .map(|_| {
+            let label = ops.new_dynamic_label();
+            dynasm!(ops
+                ; jmp => label
+                ; .align 8
+            );
+            label
+        })
+        .collect()
+}
 
-    for offset in offsets.iter() {
-        dynasm!(ops
-            ; .qword offset.0 as _
-        );
-    }
+fn generate_cmd_table(
+    ops: &mut Assembler,
+    insts: &[Result<Instruction, Vec<u8>>],
+    options: &CompileOptions,
+) -> Vec<Option<DynamicLabel>> {
+    insts
+        .iter()
+        .map(|inst| {
+            if options.trace_pc {
+                match inst {
+                    Ok(i) => {
+                        let label = ops.new_dynamic_label();
+                        let buf: [u8; mem::size_of::<Command>()] =
+                            unsafe { std::mem::transmute(i.cmd) };
+                        dynasm!(ops
+                            ; .align mem::align_of::<Command>()
+                            ; => label
+                            ; .bytes buf.iter()
+                        );
+                        Some(label)
+                    }
+                    Err(_) => None,
+                }
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 fn check_cycle_limit(ops: &mut Assembler) {
@@ -557,20 +594,29 @@ fn generate_invalid(
     Default::default()
 }
 
-fn emit_std_logging_call(ops: &mut Assembler, inst: &Instruction, bus: &ExternalBus) {
-    let buf: [u8; std::mem::size_of::<Command>()] = unsafe { std::mem::transmute(inst.cmd) };
+fn emit_pc_trace_call(ops: &mut Assembler, cmd_label: DynamicLabel, inst: &Instruction) {
     dynasm!(ops
-        ; jmp >code
-        ; .align std::mem::align_of::<Command>()
-        ; cmd:
-        ; .bytes buf.iter()
-        ; code:
         ;; push_state(ops)
         ; mov rdi, [rsp + 0x08]
         ;; repack_cpu_state(ops)
-        ; lea rsi, [<cmd]
+        ; mov rsi, inst.encoding[0] as _
+        ; lea rdx, [=> cmd_label]
+        ; mov rcx, [r14]
+        ; mov rax, QWORD log_state as _
+        ; call rax
+        ;; pop_state(ops)
+    );
+}
+
+fn emit_std_logging_call(ops: &mut Assembler, cmd_label: DynamicLabel, bus: &ExternalBus) {
+    dynasm!(ops
+        ;; push_state(ops)
+        ; mov rdi, [rsp + 0x08]
+        ;; repack_cpu_state(ops)
+        ; lea rsi, [=> cmd_label]
         ; mov rdx, QWORD bus.read as _
         ; mov rcx, [rsp + 0x10]
+        ; mov r8, [r14]
         ; mov rax, QWORD print_state_std as _
         ; call rax
         ;; pop_state(ops)
@@ -584,15 +630,17 @@ extern "sysv64" fn log_invalid(pc: u16, opcode: u8) {
     );
 }
 
-extern "sysv64" fn log_state(state: *const CpuState, opcode: u8, cycle: u64) {
+extern "sysv64" fn log_state(state: *const CpuState, opcode: u8, cmd: *const Command, cycle: u64) {
     let state: &CpuState = unsafe { &*state };
+    let cmd: &Command = unsafe { &*cmd };
     let pc = state.pc;
     trace!(
-        "Executing instruction {:#04x?} at {:#06x?}, state: {:04x?}, cycle: {:?}",
+        "Executing instruction {:#04x?} at {:#06x?}, state: {:04x?}, cycle: {:?}, cmd: {:?}",
         opcode,
         pc,
         state,
-        cycle
+        cycle,
+        cmd,
     );
 }
 
@@ -601,6 +649,7 @@ extern "sysv64" fn print_state_std(
     cmd: *const Command,
     read: extern "sysv64" fn(u16, *mut c_void) -> u8,
     param: *mut c_void,
+    cycle: u64,
 ) {
     let state: &CpuState = unsafe { &*state };
     let cmd: &Command = unsafe { &*cmd };
@@ -611,7 +660,7 @@ extern "sysv64" fn print_state_std(
     let ppu_mode = read(0xff41, param) & 3;
 
     println!(
-        "A: {:02x}, F: {}{}{}{}, BC: {:04x}, DE: {:04x}, HL: {:04x}, SP: {:04x}, (HL): {:02x}, ppu: {}. {:#06x}: {:?}",
+        "A: {:02x}, F: {}{}{}{}, BC: {:04x}, DE: {:04x}, HL: {:04x}, SP: {:04x}, (HL): {:02x}, ppu: {}, clk: {:18}. {:#06x}: {:?}",
         state.af as u8,
         fc(6, 'Z'),
         fc(5, 'N'),
@@ -623,6 +672,7 @@ extern "sysv64" fn print_state_std(
         state.sp,
         hl_val,
         ppu_mode,
+        cycle / 4,
         state.pc,
         cmd
     );

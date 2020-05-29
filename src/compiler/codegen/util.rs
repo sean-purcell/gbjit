@@ -227,6 +227,7 @@ pub fn materialize_af(ops: &mut Assembler) {
         ; or al, ah
         ; mov ah, [rsp + 0x01]
         ; mov di, ax
+        ; mov al, [rsp + 0x01]
     );
 }
 

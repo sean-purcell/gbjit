@@ -17,6 +17,7 @@ pub struct CodeBlock<T> {
     base_addr: u16,
     buf: ExecutableBuffer,
     entry: extern "sysv64" fn(*mut CpuState, bus: *mut c_void, cycle_state: *const c_void),
+    code_start: AssemblyOffset,
     offsets: Vec<AssemblyOffset>,
     instructions: Vec<Result<Instruction, Vec<u8>>>,
     bus: ExternalBus<T>,
@@ -31,11 +32,12 @@ impl<T> CodeBlock<T> {
         instructions: Vec<Result<Instruction, Vec<u8>>>,
         bus: ExternalBus<T>,
     ) -> Self {
-        let entry = unsafe { mem::transmute(buf.ptr(entry)) };
+        let entry_fn = unsafe { mem::transmute(buf.ptr(entry)) };
         CodeBlock {
             base_addr,
             buf,
-            entry,
+            entry: entry_fn,
+            code_start: entry,
             offsets,
             instructions,
             bus,
@@ -77,9 +79,9 @@ impl<T> CodeBlock<T> {
             .detail(false)
             .build()?;
 
-        let base_addr = self.buf.ptr(AssemblyOffset(0)) as u64;
+        let base_addr = self.buf.ptr(self.code_start) as u64;
 
-        let instructions = cs.disasm_all(&*self.buf, base_addr)?;
+        let instructions = cs.disasm_all(&self.buf[self.code_start.0..], base_addr)?;
 
         enum Entry<'a> {
             SrcInstruction {
