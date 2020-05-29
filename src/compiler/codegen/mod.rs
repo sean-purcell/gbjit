@@ -2,10 +2,7 @@ use std::ffi::c_void;
 use std::mem;
 
 use dynasm::dynasm;
-use dynasmrt::{
-    relocations::{Relocation, RelocationSize},
-    x64::{Assembler, X64Relocation},
-};
+use dynasmrt::x64::Assembler;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer};
 use log::*;
 
