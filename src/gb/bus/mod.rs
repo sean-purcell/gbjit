@@ -13,6 +13,7 @@ mod kind;
 mod module;
 mod ram;
 mod rom;
+mod wram;
 
 pub use bios::Bios;
 pub use bus_wrapper::BusWrapper;
@@ -23,10 +24,10 @@ pub use kind::Kind;
 pub use module::{Module, PageId, PageStatus};
 pub use ram::Ram;
 use rom::Rom;
+use wram::Wram;
 
 type Oam = Ram;
 type Vram = Ram;
-type Wram = Ram;
 type Hram = Ram;
 
 // TODO: Fixme with mbc detection
@@ -67,7 +68,7 @@ impl Bus {
             cart: Cartridge::new(cartridge_path)?,
             vram: Ram::new(Kind::Vram, 0x8000, 0x2000, 0x100),
             cram: Ram::new(Kind::Cram, 0xA000, 0x2000, 0x100),
-            wram: Ram::new(Kind::Wram, 0xC000, 0x2000, 0x100),
+            wram: Wram::new(),
             oam: Ram::new(Kind::Oam, 0xFE00, 0xA0, 0xA0),
             unused: Ram::new_with_data(vec![0xff; 0x60], Kind::Unused, 0xFEA0, 0x60),
             io: Io::new(),
