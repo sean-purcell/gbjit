@@ -22,6 +22,13 @@ pub(super) fn generate(
     dynasm!(ops
         ; mov [rsp], ah
         ; lahf
+    );
+    if !inc {
+        dynasm!(ops
+            ; or ah, BYTE 0x20 as _
+        );
+    }
+    dynasm!(ops
         ; and BYTE [rsp + 0x02], BYTE 0x01
         ; or [rsp + 0x02], ah
         ; mov ah, [rsp]
