@@ -2,6 +2,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use anyhow::Error;
+use log::*;
 
 use crate::compiler::{CycleState, ExternalBus};
 use crate::cpu_state::CpuState;
@@ -111,6 +112,7 @@ impl Gb {
             id: page.id,
             version: page.version,
         });
+        trace!("Entering code block");
         code.enter(&mut self.cpu_state, &mut self.components, &self.cycles);
         self.components.execution_state.take();
         Ok(())

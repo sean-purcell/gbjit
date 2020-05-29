@@ -72,17 +72,18 @@ where
                         id, base_addr, version
                     )?;
                     for (idx, inst) in code.instructions().iter().enumerate() {
+                        let pc = base_addr.wrapping_add(idx as u16);
                         match inst {
                             Ok(i) => writeln!(
                                 f,
                                 "{:04x}: {:<50}, cycles {:2}/{:8}, encoding: {:02x?}",
-                                base_addr.wrapping_add(idx as u16),
+                                pc,
                                 format!("{:?}", i.cmd),
                                 i.cycles,
                                 format!("{:?}", i.alt_cycles),
                                 i.encoding
                             ),
-                            Err(bytes) => writeln!(f, "Incomplete {:02x?}", bytes),
+                            Err(bytes) => writeln!(f, "{:04x}: Incomplete {:02x?}", pc, bytes),
                         }?;
                     }
                     for inst in x86_disasm.iter() {
