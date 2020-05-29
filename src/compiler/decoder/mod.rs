@@ -383,7 +383,7 @@ fn parse_ld_absolute(bytes: &[u8]) -> DecodeResult {
     let addr = HalfWordId::Addr(get_immediate(bytes)?);
     let a = HalfWordId::RegVal(HalfReg::A);
 
-    let (src, dst) = if bytes[0] & 1 == 0 {
+    let (src, dst) = if bytes[0] & 0x10 == 0 {
         (a, addr)
     } else {
         (addr, a)
