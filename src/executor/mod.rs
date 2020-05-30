@@ -5,6 +5,7 @@ use std::hash::Hash;
 use std::io::{BufWriter, Write};
 
 use anyhow::Error;
+use log::*;
 
 use crate::{
     compiler::{compile, CodeBlock, CompileOptions, ExternalBus, OneoffTable},
@@ -99,6 +100,10 @@ where
             HmEntry::Occupied(e) => {
                 let e = e.into_mut();
                 if e.version != version {
+                    debug!(
+                        "Recompiling block {:?} at {:#06x?}, version {}",
+                        id, base_addr, version
+                    );
                     *e = create_entry()?;
                 }
                 Ok(&e.code)

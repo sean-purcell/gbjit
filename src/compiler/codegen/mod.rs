@@ -599,6 +599,7 @@ fn emit_pc_trace_call(ops: &mut Assembler, cmd_label: DynamicLabel, inst: &Instr
         ; mov rsi, inst.encoding[0] as _
         ; lea rdx, [=> cmd_label]
         ; mov rcx, [r14]
+        ; mov r8, [r15]
         ; mov rax, QWORD log_state as _
         ; call rax
         ;; pop_state(ops)
@@ -627,16 +628,23 @@ extern "sysv64" fn log_invalid(pc: u16, opcode: u8) {
     );
 }
 
-extern "sysv64" fn log_state(state: *const CpuState, opcode: u8, cmd: *const Command, cycle: u64) {
+extern "sysv64" fn log_state(
+    state: *const CpuState,
+    opcode: u8,
+    cmd: *const Command,
+    cycle: u64,
+    limit: u64,
+) {
     let state: &CpuState = unsafe { &*state };
     let cmd: &Command = unsafe { &*cmd };
     let pc = state.pc;
     trace!(
-        "Executing instruction {:#04x?} at {:#06x?}, state: {:04x?}, cycle: {:?}, cmd: {:?}",
+        "Exec {:#04x?} at {:#06x?}, state: {}, cycle: {:?}, room: {}, cmd: {:?}",
         opcode,
         pc,
         state,
         cycle,
+        limit - cycle,
         cmd,
     );
 }
@@ -650,23 +658,13 @@ extern "sysv64" fn print_state_std(
 ) {
     let state: &CpuState = unsafe { &*state };
     let cmd: &Command = unsafe { &*cmd };
-    let flags = (state.af >> 8) as u8;
-    let fc = |b, c| if (flags & (1u8 << b)) != 0u8 { c } else { '-' };
 
     let hl_val = read(state.hl, param);
     let ppu_mode = read(0xff41, param) & 3;
 
     println!(
-        "A: {:02x}, F: {}{}{}{}, BC: {:04x}, DE: {:04x}, HL: {:04x}, SP: {:04x}, (HL): {:02x}, ppu: {}, clk: {:18}. {:#06x}: {:?}",
-        state.af as u8,
-        fc(6, 'Z'),
-        fc(5, 'N'),
-        fc(4, 'H'),
-        fc(0, 'C'),
-        state.bc,
-        state.de,
-        state.hl,
-        state.sp,
+        "{}, (HL): {:02x}, ppu: {}, clk: {:18}. {:#06x}: {:?}",
+        state,
         hl_val,
         ppu_mode,
         cycle / 4,
