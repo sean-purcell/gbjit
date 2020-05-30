@@ -447,7 +447,7 @@ fn generate_oneoff_epilogue(ops: &mut Assembler, desc: &EpilogueDescription, ins
             match target {
                 JumpDescription::Static(target_pc) => {
                     dynasm!(ops
-                        ; add r13w, WORD *target_pc as _
+                        ; mov r13w, WORD *target_pc as _
                         ;; epilogue(ops)
                     );
                 }
