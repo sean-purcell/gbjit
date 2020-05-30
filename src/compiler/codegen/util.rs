@@ -238,7 +238,8 @@ pub fn deconstruct_af(ops: &mut Assembler) {
         ; mov ah, al
         ; shr al, 1
         ; shr ah, 4
-        ; and ah, BYTE 1 as _
+        ; and al, BYTE 0x70 as _
+        ; and ah, BYTE 0x01 as _
         ; or al, ah
         ; mov [rsp + 0x02], al
         ; mov ax, di
