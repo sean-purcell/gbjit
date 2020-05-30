@@ -112,6 +112,7 @@ impl Gb {
             id: page.id,
             version: page.version,
         });
+        self.event_manager.update_limit();
         trace!("Entering code block");
         code.enter(&mut self.cpu_state, &mut self.components, &self.cycles);
         self.components.execution_state.take();
